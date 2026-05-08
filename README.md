@@ -7,54 +7,46 @@ A web-based dashboard for spawning, monitoring, and orchestrating Claude-powered
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+
-- Docker (optional)
+- ANTHROPIC_API_KEY (get one from [Anthropic Console](https://console.anthropic.com))
 
-### Setup
+### Installation
 
-1. Clone the repository:
+1. Clone and setup:
 ```bash
 git clone https://github.com/Adityahtotlani/agenticOS.git
 cd agenticOS
+bash setup.sh
 ```
 
-2. Create `.env` file in the project root:
+2. Configure environment:
 ```bash
-cp .env.example .env
 # Edit .env and add your ANTHROPIC_API_KEY
-```
-
-3. Setup Backend:
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-4. Setup Frontend:
-```bash
-cd frontend
-npm install
+nano .env
 ```
 
 ### Running the Application
 
-#### Terminal 1 — Backend:
+**Option A: Manual (2 terminals)**
+
+Terminal 1:
 ```bash
 cd backend
 source venv/bin/activate
 uvicorn main:app --reload
 ```
 
-Backend will be available at `http://localhost:8000`
-
-#### Terminal 2 — Frontend:
+Terminal 2:
 ```bash
 cd frontend
 npm run dev
 ```
 
-Frontend will be available at `http://localhost:3000`
+**Option B: Docker (single command)**
+```bash
+ANTHROPIC_API_KEY=your_key_here docker-compose up
+```
+
+Then visit **http://localhost:3000** in your browser.
 
 ## Features (Phase 1 MVP)
 
