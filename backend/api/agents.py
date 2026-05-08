@@ -36,13 +36,15 @@ def list_agents_endpoint(db: Session = Depends(get_db)):
 
 @router.post("/", response_model=AgentResponse)
 def create_agent(agent_in: AgentCreate, db: Session = Depends(get_db)):
-    agent = Agent(
-        name=agent_in.name,
-        model=agent_in.model,
-        parent_id=agent_in.parent_id,
-        system_prompt=agent_in.system_prompt,
-        status="idle"
-    )
+    kwargs = {
+        "name": agent_in.name,
+        "model": agent_in.model,
+        "parent_id": agent_in.parent_id,
+        "status": "idle",
+    }
+    if agent_in.system_prompt:
+        kwargs["system_prompt"] = agent_in.system_prompt
+    agent = Agent(**kwargs)
     db.add(agent)
     db.commit()
     db.refresh(agent)
