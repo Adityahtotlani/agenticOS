@@ -9,11 +9,19 @@ services:
       - "8000:8000"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - DATABASE_URL=sqlite:///./agenticios.db
+      - DATABASE_URL=sqlite:////app/data/agenticios.db
       - DEBUG=false
+      - ALLOWED_ORIGINS=http://localhost:3000
     volumes:
+      - ./data:/app/data
       - ./backend:/app/backend
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
   frontend:
     build:
@@ -21,9 +29,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     command: npm run dev
-
-volumes:
-  db:

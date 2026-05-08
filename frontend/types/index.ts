@@ -4,6 +4,15 @@ export interface Agent {
   model: string
   status: string
   parent_id: number | null
+  system_prompt?: string
+}
+
+export interface AgentTemplate {
+  id: string
+  name: string
+  description: string
+  model: string
+  system_prompt: string
 }
 
 export interface Task {

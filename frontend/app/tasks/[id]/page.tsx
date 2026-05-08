@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { API_BASE } from '@/lib/api'
 import { Task, Agent } from '@/types'
 
 interface TaskWithAgent extends Task {
@@ -26,9 +27,9 @@ export default function TaskDetailPage() {
   const fetchTask = async () => {
     try {
       const [taskRes, subtasksRes, agentsRes] = await Promise.all([
-        fetch(`http://localhost:8000/api/tasks/${taskId}`),
-        fetch(`http://localhost:8000/api/tasks/${taskId}/subtasks`),
-        fetch('http://localhost:8000/api/agents')
+        fetch(`${API_BASE}/api/tasks/${taskId}`),
+        fetch(`${API_BASE}/api/tasks/${taskId}/subtasks`),
+        fetch(`${API_BASE}/api/agents`)
       ])
 
       const taskData = await taskRes.json()

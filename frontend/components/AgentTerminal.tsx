@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { RotateCcw, Zap, CheckCircle } from 'lucide-react'
+import { getWebSocketUrl } from '@/lib/api'
 import { TerminalEntry } from '@/types'
 
 interface AgentTerminalProps {
@@ -20,7 +21,7 @@ export default function AgentTerminal({ agentId, taskId }: AgentTerminalProps) {
     if (!taskId) return
 
     const connectWebSocket = () => {
-      const ws = new WebSocket(`ws://localhost:8000/ws/agents/${agentId}/stream`)
+      const ws = new WebSocket(getWebSocketUrl(`/ws/agents/${agentId}/stream`))
 
       ws.onopen = () => {
         setIsStreaming(true)

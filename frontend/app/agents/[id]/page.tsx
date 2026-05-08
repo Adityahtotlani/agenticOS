@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { API_BASE } from '@/lib/api'
 import AgentTerminal from '@/components/AgentTerminal'
 import { Agent, Task } from '@/types'
 
@@ -25,7 +26,7 @@ export default function AgentDetailPage() {
 
   const fetchAgent = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/agents/${agentId}`)
+      const res = await fetch(`${API_BASE}/api/agents/${agentId}`)
       setAgent(await res.json())
     } catch (error) {
       console.error('Failed to fetch agent:', error)
@@ -36,7 +37,7 @@ export default function AgentDetailPage() {
 
   const fetchTasks = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/tasks')
+      const res = await fetch(`${API_BASE}/api/tasks`)
       setTasks(await res.json())
     } catch (error) {
       console.error('Failed to fetch tasks:', error)
@@ -45,7 +46,7 @@ export default function AgentDetailPage() {
 
   const fetchChildren = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/agents/${agentId}/children`)
+      const res = await fetch(`${API_BASE}/api/agents/${agentId}/children`)
       setChildren(await res.json())
     } catch (error) {
       console.error('Failed to fetch children:', error)
@@ -54,7 +55,7 @@ export default function AgentDetailPage() {
 
   const handlePause = async () => {
     try {
-      await fetch(`http://localhost:8000/api/agents/${agentId}/pause`, { method: 'POST' })
+      await fetch(`${API_BASE}/api/agents/${agentId}/pause`, { method: 'POST' })
       fetchAgent()
     } catch (error) {
       console.error('Failed to pause agent:', error)
@@ -63,7 +64,7 @@ export default function AgentDetailPage() {
 
   const handleKill = async () => {
     try {
-      await fetch(`http://localhost:8000/api/agents/${agentId}/kill`, { method: 'POST' })
+      await fetch(`${API_BASE}/api/agents/${agentId}/kill`, { method: 'POST' })
       fetchAgent()
     } catch (error) {
       console.error('Failed to kill agent:', error)

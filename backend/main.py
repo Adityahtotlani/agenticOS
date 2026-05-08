@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from config import settings
 from database import Base, engine
-from api import agents, tasks, ws, memory
+from api import agents, tasks, ws, memory, templates
 from models import Agent, Task, Memory
 
 # Create tables
@@ -10,9 +11,10 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="AgenticOS", description="Operating System for AI Agents")
 
 # CORS
+allowed_origins = [origin.strip() for origin in settings.allowed_origins.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,6 +24,7 @@ app.add_middleware(
 app.include_router(agents.router)
 app.include_router(tasks.router)
 app.include_router(memory.router)
+app.include_router(templates.router)
 app.include_router(ws.router)
 
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { API_BASE } from '@/lib/api'
 import AgentCard from '@/components/AgentCard'
 import TaskCard from '@/components/TaskCard'
 
@@ -29,8 +30,8 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         const [agentsRes, tasksRes] = await Promise.all([
-          fetch('http://localhost:8000/api/agents'),
-          fetch('http://localhost:8000/api/tasks'),
+          fetch(`${API_BASE}/api/agents`),
+          fetch(`${API_BASE}/api/tasks`),
         ])
 
         setAgents(await agentsRes.json())

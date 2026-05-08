@@ -13,6 +13,7 @@ class AgentCreate(BaseModel):
     name: str
     model: str = "claude-sonnet-4-6"
     parent_id: int = None
+    system_prompt: str = None
 
 
 class AgentResponse(BaseModel):
@@ -21,6 +22,7 @@ class AgentResponse(BaseModel):
     model: str
     status: str
     parent_id: int = None
+    system_prompt: str = None
 
     class Config:
         from_attributes = True
@@ -38,6 +40,7 @@ def create_agent(agent_in: AgentCreate, db: Session = Depends(get_db)):
         name=agent_in.name,
         model=agent_in.model,
         parent_id=agent_in.parent_id,
+        system_prompt=agent_in.system_prompt,
         status="idle"
     )
     db.add(agent)

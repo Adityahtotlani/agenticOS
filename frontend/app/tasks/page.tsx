@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { API_BASE } from '@/lib/api'
 import TaskCard from '@/components/TaskCard'
 import { Plus } from 'lucide-react'
 
@@ -23,7 +24,7 @@ export default function TasksPage() {
 
   const fetchTasks = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/tasks')
+      const res = await fetch(`${API_BASE}/api/tasks`)
       setTasks(await res.json())
     } catch (error) {
       console.error('Failed to fetch tasks:', error)

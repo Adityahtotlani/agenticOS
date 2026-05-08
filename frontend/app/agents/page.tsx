@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { API_BASE } from '@/lib/api'
 import AgentCard from '@/components/AgentCard'
 import { Plus } from 'lucide-react'
 
@@ -23,7 +24,7 @@ export default function AgentsPage() {
 
   const fetchAgents = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/agents')
+      const res = await fetch(`${API_BASE}/api/agents`)
       setAgents(await res.json())
     } catch (error) {
       console.error('Failed to fetch agents:', error)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { API_BASE } from '@/lib/api'
 import { Agent, Memory } from '@/types'
 
 type MemoryType = 'all' | 'short_term' | 'long_term'
@@ -15,7 +16,7 @@ export default function MemoryPage() {
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/agents')
+        const res = await fetch(`${API_BASE}/api/agents`)
         const data = await res.json()
         setAgents(data)
         if (data.length > 0) {
@@ -37,8 +38,8 @@ export default function MemoryPage() {
     const fetchMemory = async () => {
       try {
         const url = filterType === 'all'
-          ? `http://localhost:8000/api/memory/${selectedAgent}`
-          : `http://localhost:8000/api/memory/${selectedAgent}?type=${filterType}`
+          ? `${API_BASE}/api/memory/${selectedAgent}`
+          : `${API_BASE}/api/memory/${selectedAgent}?type=${filterType}`
 
         const res = await fetch(url)
         const data = await res.json()

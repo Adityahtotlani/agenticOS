@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { API_BASE } from '@/lib/api'
 
 export default function NewTaskPage() {
   const router = useRouter()
@@ -17,7 +18,7 @@ export default function NewTaskPage() {
     setError('')
 
     try {
-      const res = await fetch('http://localhost:8000/api/tasks', {
+      const res = await fetch(`${API_BASE}/api/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -46,3 +46,4 @@ dist/
 # Project
 workspace/
 logs/
+data/
