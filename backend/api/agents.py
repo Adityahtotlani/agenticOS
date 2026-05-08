@@ -82,3 +82,9 @@ def kill_agent(agent_id: int, db: Session = Depends(get_db)):
     agent.status = "dead"
     db.commit()
     return {"ok": True}
+
+
+@router.get("/{agent_id}/children", response_model=List[AgentResponse])
+def get_agent_children(agent_id: int, db: Session = Depends(get_db)):
+    children = db.query(Agent).filter(Agent.parent_id == agent_id).all()
+    return children

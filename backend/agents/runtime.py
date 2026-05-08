@@ -44,8 +44,9 @@ class AgentRuntime:
             if long_term_context:
                 system_prompt += f"\n\nPrevious learnings:\n{long_term_context}"
 
-            # Run multi-turn tool loop
-            await self._run_tool_loop(messages, system_prompt, db)
+            # Run multi-turn tool loop and relay streaming events
+            async for chunk in self._run_tool_loop(messages, system_prompt, db, self.agent_id, task_id):
+                yield chunk
 
             # Generate long-term memory summary
             await self._save_long_term_memory(messages, task, db)
@@ -69,7 +70,7 @@ class AgentRuntime:
             self.running = False
             db.close()
 
-    async def _run_tool_loop(self, messages: list, system_prompt: str, db) -> None:
+    async def _run_tool_loop(self, messages: list, system_prompt: str, db, agent_id: int, task_id: int) -> AsyncGenerator[str, None]:
         """Multi-turn loop for tool use and streaming."""
         while True:
             # Stream response from Claude with tools

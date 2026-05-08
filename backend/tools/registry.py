@@ -3,6 +3,7 @@ from typing import Any
 from tools.web_search import web_search
 from tools.code_exec import execute_python
 from tools.file_ops import read_file, write_file
+from tools.spawn_agent_tool import spawn_child_agent
 
 # Tool definitions for Claude's API
 TOOL_SCHEMAS = [
@@ -70,6 +71,36 @@ TOOL_SCHEMAS = [
             },
             "required": ["path", "content"]
         }
+    },
+    {
+        "name": "spawn_child_agent",
+        "description": "Spawn a child agent to work on a subtask in parallel",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Name for the child agent (e.g., 'Research Assistant')"
+                },
+                "task_title": {
+                    "type": "string",
+                    "description": "Title of the subtask for the child agent"
+                },
+                "task_description": {
+                    "type": "string",
+                    "description": "Detailed description of what the child agent should do"
+                },
+                "parent_agent_id": {
+                    "type": "integer",
+                    "description": "ID of the parent agent (your own ID)"
+                },
+                "parent_task_id": {
+                    "type": "integer",
+                    "description": "ID of the current task (parent task)"
+                }
+            },
+            "required": ["name", "task_title", "task_description", "parent_agent_id", "parent_task_id"]
+        }
     }
 ]
 
@@ -78,6 +109,7 @@ TOOL_FUNCTIONS = {
     "execute_python": execute_python,
     "read_file": read_file,
     "write_file": write_file,
+    "spawn_child_agent": spawn_child_agent,
 }
 
 

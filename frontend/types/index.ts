@@ -12,6 +12,7 @@ export interface Task {
   description: string
   status: string
   agent_id: number | null
+  parent_task_id: number | null
   result?: string
 }
 

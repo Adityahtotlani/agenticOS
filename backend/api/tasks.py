@@ -12,6 +12,7 @@ class TaskCreate(BaseModel):
     title: str
     description: str
     agent_id: Optional[int] = None
+    parent_task_id: Optional[int] = None
 
 
 class TaskUpdate(BaseModel):
@@ -26,6 +27,7 @@ class TaskResponse(BaseModel):
     description: str
     status: str
     agent_id: Optional[int]
+    parent_task_id: Optional[int]
     result: Optional[str]
 
     class Config:
@@ -43,6 +45,7 @@ def create_task(task_in: TaskCreate, db: Session = Depends(get_db)):
         title=task_in.title,
         description=task_in.description,
         agent_id=task_in.agent_id,
+        parent_task_id=task_in.parent_task_id,
         status="pending"
     )
     db.add(task)
@@ -75,6 +78,12 @@ def update_task(task_id: int, task_in: TaskUpdate, db: Session = Depends(get_db)
     db.commit()
     db.refresh(task)
     return task
+
+
+@router.get("/{task_id}/subtasks", response_model=List[TaskResponse])
+def get_task_subtasks(task_id: int, db: Session = Depends(get_db)):
+    subtasks = db.query(Task).filter(Task.parent_task_id == task_id).all()
+    return subtasks
 
 
 @router.delete("/{task_id}")
