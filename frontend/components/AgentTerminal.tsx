@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Play, Pause, RotateCcw } from 'lucide-react'
+import { RotateCcw, Zap, CheckCircle } from 'lucide-react'
+import { TerminalEntry } from '@/types'
 
 interface AgentTerminalProps {
   agentId: number
@@ -9,10 +10,11 @@ interface AgentTerminalProps {
 }
 
 export default function AgentTerminal({ agentId, taskId }: AgentTerminalProps) {
-  const [output, setOutput] = useState<string>('')
+  const [entries, setEntries] = useState<TerminalEntry[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const terminalRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const currentTextRef = useRef<string>('')
 
   useEffect(() => {
     if (!taskId) return
@@ -22,7 +24,8 @@ export default function AgentTerminal({ agentId, taskId }: AgentTerminalProps) {
 
       ws.onopen = () => {
         setIsStreaming(true)
-        setOutput('')
+        setEntries([])
+        currentTextRef.current = ''
         ws.send(JSON.stringify({ task_id: taskId }))
       }
 
@@ -30,11 +33,34 @@ export default function AgentTerminal({ agentId, taskId }: AgentTerminalProps) {
         const data = JSON.parse(event.data)
 
         if (data.type === 'output') {
-          setOutput(prev => prev + data.chunk)
+          currentTextRef.current += data.chunk
+          setEntries(prev => {
+            const newEntries = [...prev]
+            const lastEntry = newEntries[newEntries.length - 1]
+
+            if (lastEntry && lastEntry.type === 'text') {
+              lastEntry.content += data.chunk
+            } else {
+              newEntries.push({ type: 'text', content: data.chunk })
+            }
+            return newEntries
+          })
+        } else if (data.type === 'tool_call') {
+          setEntries(prev => [...prev, {
+            type: 'tool_call',
+            name: data.name,
+            input: data.input
+          }])
+        } else if (data.type === 'tool_result') {
+          setEntries(prev => [...prev, {
+            type: 'tool_result',
+            name: data.name,
+            result: data.result
+          }])
         } else if (data.type === 'done') {
           setIsStreaming(false)
         } else if (data.type === 'error') {
-          setOutput(prev => prev + `\nERROR: ${data.message}`)
+          setEntries(prev => [...prev, { type: 'error', content: `ERROR: ${data.message}` }])
           setIsStreaming(false)
         }
       }
@@ -64,13 +90,14 @@ export default function AgentTerminal({ agentId, taskId }: AgentTerminalProps) {
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight
     }
-  }, [output])
+  }, [entries])
 
   const handleClear = () => {
-    setOutput('')
+    setEntries([])
+    currentTextRef.current = ''
   }
 
-  const handlePause = () => {
+  const handleStop = () => {
     if (wsRef.current) {
       wsRef.current.close()
       setIsStreaming(false)
@@ -85,12 +112,12 @@ export default function AgentTerminal({ agentId, taskId }: AgentTerminalProps) {
         </span>
         <div className="flex gap-2">
           <button
-            onClick={handlePause}
+            onClick={handleStop}
             disabled={!isStreaming}
             className="p-1 hover:bg-gray-700 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Pause"
+            title="Stop"
           >
-            <Pause size={16} />
+            <div className="w-4 h-4 bg-red-600 rounded" />
           </button>
           <button
             onClick={handleClear}
@@ -104,9 +131,50 @@ export default function AgentTerminal({ agentId, taskId }: AgentTerminalProps) {
 
       <div
         ref={terminalRef}
-        className="flex-1 overflow-y-auto p-4 font-mono text-sm text-gray-100 whitespace-pre-wrap"
+        className="flex-1 overflow-y-auto p-4 space-y-2"
       >
-        {output || <span className="text-gray-500">Waiting for output...</span>}
+        {entries.length === 0 ? (
+          <span className="text-gray-500 text-sm">Waiting for output...</span>
+        ) : (
+          entries.map((entry, idx) => (
+            <div key={idx}>
+              {entry.type === 'text' && (
+                <div className="font-mono text-sm text-gray-100 whitespace-pre-wrap">
+                  {entry.content}
+                </div>
+              )}
+              {entry.type === 'tool_call' && (
+                <div className="flex items-center gap-2 bg-yellow-900/20 border border-yellow-700/50 rounded px-3 py-2">
+                  <Zap size={14} className="text-yellow-500" />
+                  <span className="text-sm text-yellow-200">
+                    <span className="font-semibold">{entry.name}</span>
+                    {' '}
+                    <span className="text-yellow-100 text-xs">
+                      {entry.input.length > 100 ? entry.input.slice(0, 100) + '...' : entry.input}
+                    </span>
+                  </span>
+                </div>
+              )}
+              {entry.type === 'tool_result' && (
+                <div className="flex items-center gap-2 bg-green-900/20 border border-green-700/50 rounded px-3 py-2">
+                  <CheckCircle size={14} className="text-green-500" />
+                  <span className="text-sm text-green-200">
+                    <span className="font-semibold">{entry.name}</span>
+                    {' '}
+                    <span className="text-green-100 text-xs">
+                      {entry.result.length > 100 ? entry.result.slice(0, 100) + '...' : entry.result}
+                    </span>
+                  </span>
+                </div>
+              )}
+              {entry.type === 'error' && (
+                <div className="font-mono text-sm text-red-400 bg-red-900/10 px-3 py-2 rounded">
+                  {entry.content}
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
     </div>
   )

@@ -1,23 +1,9 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { Play, Pause, X } from 'lucide-react'
 import AgentTerminal from '@/components/AgentTerminal'
-
-interface Agent {
-  id: number
-  name: string
-  model: string
-  status: string
-  parent_id: number | null
-}
-
-interface Task {
-  id: number
-  title: string
-  description: string
-}
+import { Agent, Task } from '@/types'
 
 export default function AgentDetailPage() {
   const params = useParams()

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import Base, engine
-from api import agents, tasks, ws
+from api import agents, tasks, ws, memory
 from models import Agent, Task, Memory
 
 # Create tables
@@ -21,6 +21,7 @@ app.add_middleware(
 # Include routers
 app.include_router(agents.router)
 app.include_router(tasks.router)
+app.include_router(memory.router)
 app.include_router(ws.router)
 
 

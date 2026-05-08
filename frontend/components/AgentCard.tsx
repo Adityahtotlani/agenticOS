@@ -1,15 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Play, Pause, X } from 'lucide-react'
-
-interface Agent {
-  id: number
-  name: string
-  model: string
-  status: string
-  parent_id: number | null
-}
+import { Agent } from '@/types'
 
 export default function AgentCard({ agent }: { agent: Agent }) {
   const statusColor = {
