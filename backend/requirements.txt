@@ -10,3 +10,4 @@ duckduckgo-search>=3.9.0
 python-multipart>=0.0.9
 chromadb>=0.4.22
 sentence-transformers>=2.5.0
+mcp>=1.0.0

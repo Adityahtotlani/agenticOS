@@ -15,6 +15,7 @@ class AgentCreate(BaseModel):
     parent_id: int = None
     system_prompt: str = None
     knowledge_base_id: int = None
+    mcp_server_ids: List[int] = []
 
 
 class AgentResponse(BaseModel):
@@ -25,6 +26,7 @@ class AgentResponse(BaseModel):
     parent_id: int = None
     system_prompt: str = None
     knowledge_base_id: int = None
+    mcp_server_ids: List[int] = []
 
     class Config:
         from_attributes = True
@@ -43,6 +45,7 @@ def create_agent(agent_in: AgentCreate, db: Session = Depends(get_db)):
         "model": agent_in.model,
         "parent_id": agent_in.parent_id,
         "knowledge_base_id": agent_in.knowledge_base_id,
+        "mcp_server_ids": agent_in.mcp_server_ids or [],
         "status": "idle",
     }
     if agent_in.system_prompt:

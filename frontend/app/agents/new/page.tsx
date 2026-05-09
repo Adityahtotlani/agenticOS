@@ -3,36 +3,44 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { API_BASE } from '@/lib/api'
-import { AgentTemplate, KnowledgeBase } from '@/types'
+import { AgentTemplate, KnowledgeBase, MCPServer } from '@/types'
 
 export default function NewAgentPage() {
   const router = useRouter()
   const [step, setStep] = useState<'template' | 'customize'>('template')
   const [templates, setTemplates] = useState<AgentTemplate[]>([])
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([])
+  const [mcpServers, setMcpServers] = useState<MCPServer[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null)
   const [name, setName] = useState('')
   const [model, setModel] = useState('claude-sonnet-4-6')
   const [systemPrompt, setSystemPrompt] = useState('')
   const [knowledgeBaseId, setKnowledgeBaseId] = useState<string>('')
+  const [selectedMcpIds, setSelectedMcpIds] = useState<number[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const [templatesRes, kbsRes] = await Promise.all([
+        const [templatesRes, kbsRes, mcpRes] = await Promise.all([
           fetch(`${API_BASE}/api/templates`),
           fetch(`${API_BASE}/api/knowledge-bases`),
+          fetch(`${API_BASE}/api/mcp-servers`),
         ])
         setTemplates(await templatesRes.json())
         setKnowledgeBases(await kbsRes.json())
+        setMcpServers(await mcpRes.json())
       } catch (err) {
         console.error('Failed to fetch initial data:', err)
       }
     }
     fetchInitialData()
   }, [])
+
+  const toggleMcp = (id: number) => {
+    setSelectedMcpIds(prev => (prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]))
+  }
 
   const handleSelectTemplate = (template: AgentTemplate | null) => {
     if (template) {
@@ -63,6 +71,7 @@ export default function NewAgentPage() {
           model,
           system_prompt: systemPrompt || undefined,
           knowledge_base_id: knowledgeBaseId ? parseInt(knowledgeBaseId) : undefined,
+          mcp_server_ids: selectedMcpIds,
         }),
       })
 
@@ -184,6 +193,43 @@ export default function NewAgentPage() {
           </select>
           <p className="text-xs text-gray-500 mt-1">
             Attach a knowledge base to give the agent the <code>search_kb</code> tool.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            MCP Servers <span className="text-gray-500 font-normal">(optional)</span>
+          </label>
+          {mcpServers.length === 0 ? (
+            <p className="text-sm text-gray-500 italic">
+              No MCP servers configured. Add some on the{' '}
+              <a href="/mcp" className="text-blue-400 hover:underline">MCP Servers</a> page.
+            </p>
+          ) : (
+            <div className="space-y-2 bg-gray-800 rounded-lg p-3 border border-gray-700">
+              {mcpServers.map(server => (
+                <label
+                  key={server.id}
+                  className="flex items-start gap-3 cursor-pointer hover:bg-gray-900/50 px-2 py-1.5 rounded"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedMcpIds.includes(server.id)}
+                    onChange={() => toggleMcp(server.id)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">{server.name}</div>
+                    {server.description && (
+                      <div className="text-xs text-gray-400">{server.description}</div>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-gray-500 mt-1">
+            Selected servers spawn for the lifetime of each task and expose their tools to the agent.
           </p>
         </div>
 

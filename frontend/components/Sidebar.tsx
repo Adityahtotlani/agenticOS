@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Users, CheckSquare, Brain, BookOpen } from 'lucide-react'
+import { Home, Users, CheckSquare, Brain, BookOpen, Plug } from 'lucide-react'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: Home },
@@ -10,6 +10,7 @@ const navItems = [
   { href: '/tasks', label: 'Tasks', icon: CheckSquare },
   { href: '/memory', label: 'Memory', icon: Brain },
   { href: '/knowledge', label: 'Knowledge', icon: BookOpen },
+  { href: '/mcp', label: 'MCP Servers', icon: Plug },
 ]
 
 export default function Sidebar() {

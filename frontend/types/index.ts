@@ -6,6 +6,29 @@ export interface Agent {
   parent_id: number | null
   system_prompt?: string
   knowledge_base_id?: number | null
+  mcp_server_ids?: number[]
+}
+
+export interface MCPServer {
+  id: number
+  name: string
+  description: string
+  command: string
+  args: string[]
+  env: Record<string, string>
+  enabled: boolean
+}
+
+export interface MCPTool {
+  name: string
+  description: string
+  input_schema: Record<string, unknown>
+}
+
+export interface MCPTestResult {
+  ok: boolean
+  tools?: MCPTool[]
+  error?: string
 }
 
 export interface KnowledgeBase {

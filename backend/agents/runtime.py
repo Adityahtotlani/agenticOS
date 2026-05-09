@@ -1,12 +1,14 @@
 import json
 import uuid
-from typing import AsyncGenerator
+from typing import AsyncGenerator, List
 from anthropic import Anthropic
 from database import SessionLocal
-from models import Agent, Task, Memory
+from models import Agent, Task, Memory, MCPServer
 from config import settings
 from tools import build_tool_schemas, execute_tool, RISKY_TOOLS
 from agents.user_input import wait_for_response
+from mcp_client import MCPSessionGroup
+from mcp_client.manager import MCPServerConfig, unqualify, TOOL_PREFIX
 
 
 class AgentRuntime:
@@ -50,9 +52,19 @@ class AgentRuntime:
             if kb_id is not None:
                 system_prompt += "\n\nYou have access to a knowledge base via the `search_kb` tool. Use it to ground answers in uploaded documents."
 
-            # Run multi-turn tool loop and relay streaming events
-            async for chunk in self._run_tool_loop(messages, system_prompt, db, self.agent_id, task_id, kb_id):
-                yield chunk
+            mcp_configs = self._load_mcp_configs(db, agent.mcp_server_ids or [])
+            if mcp_configs:
+                system_prompt += (
+                    "\n\nYou have access to additional tools from MCP servers, prefixed `mcp_<id>__<tool>`. "
+                    "Each tool's description starts with [server name] for context."
+                )
+
+            # Spawn attached MCP servers for the lifetime of this task
+            async with MCPSessionGroup(mcp_configs) as mcp_group:
+                async for chunk in self._run_tool_loop(
+                    messages, system_prompt, db, self.agent_id, task_id, kb_id, mcp_group
+                ):
+                    yield chunk
 
             # Generate long-term memory summary
             await self._save_long_term_memory(messages, task, db)
@@ -76,9 +88,35 @@ class AgentRuntime:
             self.running = False
             db.close()
 
-    async def _run_tool_loop(self, messages: list, system_prompt: str, db, agent_id: int, task_id: int, kb_id: int = None) -> AsyncGenerator[str, None]:
+    def _load_mcp_configs(self, db, server_ids: List[int]) -> List[MCPServerConfig]:
+        if not server_ids:
+            return []
+        servers = db.query(MCPServer).filter(MCPServer.id.in_(server_ids), MCPServer.enabled == True).all()
+        return [
+            MCPServerConfig(
+                id=s.id,
+                name=s.name,
+                command=s.command,
+                args=s.args or [],
+                env=s.env or {},
+            )
+            for s in servers
+        ]
+
+    async def _run_tool_loop(
+        self,
+        messages: list,
+        system_prompt: str,
+        db,
+        agent_id: int,
+        task_id: int,
+        kb_id: int = None,
+        mcp_group: MCPSessionGroup = None,
+    ) -> AsyncGenerator[str, None]:
         """Multi-turn loop for tool use and streaming."""
         tool_schemas = build_tool_schemas(knowledge_base_id=kb_id)
+        if mcp_group is not None:
+            tool_schemas = tool_schemas + mcp_group.tool_schemas()
         while True:
             # Stream response from Claude with tools
             with self.client.messages.stream(
@@ -184,7 +222,10 @@ class AgentRuntime:
                         "input": json.dumps(tool_input),
                     })
 
-                    result = await execute_tool(name, tool_input, knowledge_base_id=kb_id)
+                    if name.startswith(TOOL_PREFIX) and mcp_group is not None and mcp_group.has_tool(name):
+                        result = await mcp_group.call(name, tool_input)
+                    else:
+                        result = await execute_tool(name, tool_input, knowledge_base_id=kb_id)
 
                     yield json.dumps({
                         "type": "tool_result",
