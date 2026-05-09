@@ -1,10 +1,12 @@
 import json
+import uuid
 from typing import AsyncGenerator
 from anthropic import Anthropic
 from database import SessionLocal
 from models import Agent, Task, Memory
 from config import settings
-from tools import build_tool_schemas, execute_tool
+from tools import build_tool_schemas, execute_tool, RISKY_TOOLS
+from agents.user_input import wait_for_response
 
 
 class AgentRuntime:
@@ -110,29 +112,90 @@ class AgentRuntime:
                 break
 
             if response.stop_reason == "tool_use":
-                # Extract and execute tools
                 tool_uses = [b for b in response.content if b.type == "tool_use"]
                 tool_results = []
 
                 for tool_use in tool_uses:
+                    name = tool_use.name
+                    tool_input = tool_use.input
+
+                    # ask_user: surface the question to the user, wait for their reply
+                    if name == "ask_user":
+                        request_id = uuid.uuid4().hex
+                        question = tool_input.get("question", "")
+                        yield json.dumps({
+                            "type": "prompt_user",
+                            "request_id": request_id,
+                            "question": question,
+                        })
+                        try:
+                            reply = await wait_for_response(self.agent_id, request_id)
+                            answer = reply.get("answer", "")
+                        except Exception as e:
+                            answer = f"[ask_user failed: {e}]"
+                        yield json.dumps({
+                            "type": "user_answer",
+                            "request_id": request_id,
+                            "answer": answer,
+                        })
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": tool_use.id,
+                            "content": answer,
+                        })
+                        continue
+
+                    # Risky tools: request approval before executing
+                    if name in RISKY_TOOLS:
+                        request_id = uuid.uuid4().hex
+                        yield json.dumps({
+                            "type": "tool_approval_request",
+                            "request_id": request_id,
+                            "name": name,
+                            "input": tool_input,
+                        })
+                        try:
+                            decision = await wait_for_response(self.agent_id, request_id)
+                            approved = bool(decision.get("approved"))
+                            reason = decision.get("reason", "")
+                        except Exception as e:
+                            approved = False
+                            reason = f"approval timed out: {e}"
+
+                        if not approved:
+                            denial = f"Tool call denied by user. Reason: {reason or '(none provided)'}"
+                            yield json.dumps({
+                                "type": "tool_denied",
+                                "name": name,
+                                "reason": reason,
+                            })
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": tool_use.id,
+                                "content": denial,
+                                "is_error": True,
+                            })
+                            continue
+
+                    # Normal tool execution
                     yield json.dumps({
                         "type": "tool_call",
-                        "name": tool_use.name,
-                        "input": json.dumps(tool_use.input)
+                        "name": name,
+                        "input": json.dumps(tool_input),
                     })
 
-                    result = await execute_tool(tool_use.name, tool_use.input, knowledge_base_id=kb_id)
+                    result = await execute_tool(name, tool_input, knowledge_base_id=kb_id)
 
                     yield json.dumps({
                         "type": "tool_result",
-                        "name": tool_use.name,
-                        "result": result[:500]  # Limit result length
+                        "name": name,
+                        "result": result[:500],
                     })
 
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": tool_use.id,
-                        "content": result
+                        "content": result,
                     })
 
                 # Append assistant message with tool use to conversation

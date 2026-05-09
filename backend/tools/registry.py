@@ -5,6 +5,7 @@ from tools.code_exec import execute_python
 from tools.file_ops import read_file, write_file
 from tools.spawn_agent_tool import spawn_child_agent
 from tools.search_kb import search_kb, SEARCH_KB_SCHEMA
+from tools.ask_user import ASK_USER_SCHEMA, RISKY_TOOLS
 
 # Tool definitions for Claude's API
 TOOL_SCHEMAS = [
@@ -118,6 +119,7 @@ TOOL_FUNCTIONS = {
 def build_tool_schemas(knowledge_base_id: Optional[int] = None) -> List[Dict]:
     """Build the tool schema list shown to Claude. Adds search_kb iff the agent has a KB."""
     schemas = list(TOOL_SCHEMAS)
+    schemas.append(ASK_USER_SCHEMA)
     if knowledge_base_id is not None:
         schemas.append(SEARCH_KB_SCHEMA)
     return schemas

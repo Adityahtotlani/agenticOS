@@ -54,3 +54,13 @@ export type TerminalEntry =
   | { type: 'tool_call'; name: string; input: string }
   | { type: 'tool_result'; name: string; result: string }
   | { type: 'error'; content: string }
+  | { type: 'prompt'; requestId: string; question: string; answer?: string; pending: boolean }
+  | {
+      type: 'approval'
+      requestId: string
+      toolName: string
+      input: Record<string, unknown>
+      decision?: 'approved' | 'denied'
+      reason?: string
+      pending: boolean
+    }
