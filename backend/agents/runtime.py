@@ -4,7 +4,7 @@ from anthropic import Anthropic
 from database import SessionLocal
 from models import Agent, Task, Memory
 from config import settings
-from tools import TOOL_SCHEMAS, execute_tool
+from tools import build_tool_schemas, execute_tool
 
 
 class AgentRuntime:
@@ -44,8 +44,12 @@ class AgentRuntime:
             if long_term_context:
                 system_prompt += f"\n\nPrevious learnings:\n{long_term_context}"
 
+            kb_id = agent.knowledge_base_id
+            if kb_id is not None:
+                system_prompt += "\n\nYou have access to a knowledge base via the `search_kb` tool. Use it to ground answers in uploaded documents."
+
             # Run multi-turn tool loop and relay streaming events
-            async for chunk in self._run_tool_loop(messages, system_prompt, db, self.agent_id, task_id):
+            async for chunk in self._run_tool_loop(messages, system_prompt, db, self.agent_id, task_id, kb_id):
                 yield chunk
 
             # Generate long-term memory summary
@@ -70,8 +74,9 @@ class AgentRuntime:
             self.running = False
             db.close()
 
-    async def _run_tool_loop(self, messages: list, system_prompt: str, db, agent_id: int, task_id: int) -> AsyncGenerator[str, None]:
+    async def _run_tool_loop(self, messages: list, system_prompt: str, db, agent_id: int, task_id: int, kb_id: int = None) -> AsyncGenerator[str, None]:
         """Multi-turn loop for tool use and streaming."""
+        tool_schemas = build_tool_schemas(knowledge_base_id=kb_id)
         while True:
             # Stream response from Claude with tools
             with self.client.messages.stream(
@@ -79,7 +84,7 @@ class AgentRuntime:
                 max_tokens=2048,
                 system=system_prompt,
                 messages=messages,
-                tools=TOOL_SCHEMAS
+                tools=tool_schemas
             ) as stream:
                 # Stream text tokens as they arrive
                 full_response = ""
@@ -116,7 +121,7 @@ class AgentRuntime:
                         "input": json.dumps(tool_use.input)
                     })
 
-                    result = await execute_tool(tool_use.name, tool_use.input)
+                    result = await execute_tool(tool_use.name, tool_use.input, knowledge_base_id=kb_id)
 
                     yield json.dumps({
                         "type": "tool_result",

@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import Base, engine
-from api import agents, tasks, ws, memory, templates
-from models import Agent, Task, Memory
+from api import agents, tasks, ws, memory, templates, knowledge_bases
+from models import Agent, Task, Memory, KnowledgeBase, Document
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -25,6 +25,7 @@ app.include_router(agents.router)
 app.include_router(tasks.router)
 app.include_router(memory.router)
 app.include_router(templates.router)
+app.include_router(knowledge_bases.router)
 app.include_router(ws.router)
 
 

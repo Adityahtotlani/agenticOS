@@ -3,29 +3,35 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { API_BASE } from '@/lib/api'
-import { AgentTemplate } from '@/types'
+import { AgentTemplate, KnowledgeBase } from '@/types'
 
 export default function NewAgentPage() {
   const router = useRouter()
   const [step, setStep] = useState<'template' | 'customize'>('template')
   const [templates, setTemplates] = useState<AgentTemplate[]>([])
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null)
   const [name, setName] = useState('')
   const [model, setModel] = useState('claude-sonnet-4-6')
   const [systemPrompt, setSystemPrompt] = useState('')
+  const [knowledgeBaseId, setKnowledgeBaseId] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const fetchTemplates = async () => {
+    const fetchInitialData = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/templates`)
-        setTemplates(await res.json())
+        const [templatesRes, kbsRes] = await Promise.all([
+          fetch(`${API_BASE}/api/templates`),
+          fetch(`${API_BASE}/api/knowledge-bases`),
+        ])
+        setTemplates(await templatesRes.json())
+        setKnowledgeBases(await kbsRes.json())
       } catch (err) {
-        console.error('Failed to fetch templates:', err)
+        console.error('Failed to fetch initial data:', err)
       }
     }
-    fetchTemplates()
+    fetchInitialData()
   }, [])
 
   const handleSelectTemplate = (template: AgentTemplate | null) => {
@@ -52,7 +58,12 @@ export default function NewAgentPage() {
       const res = await fetch(`${API_BASE}/api/agents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, model, system_prompt: systemPrompt || undefined }),
+        body: JSON.stringify({
+          name,
+          model,
+          system_prompt: systemPrompt || undefined,
+          knowledge_base_id: knowledgeBaseId ? parseInt(knowledgeBaseId) : undefined,
+        }),
       })
 
       if (!res.ok) {
@@ -153,6 +164,27 @@ export default function NewAgentPage() {
             className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-blue-500"
             placeholder="Define the agent's personality and behavior..."
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Knowledge Base <span className="text-gray-500 font-normal">(optional)</span>
+          </label>
+          <select
+            value={knowledgeBaseId}
+            onChange={(e) => setKnowledgeBaseId(e.target.value)}
+            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-blue-500"
+          >
+            <option value="">None (no knowledge base)</option>
+            {knowledgeBases.map(kb => (
+              <option key={kb.id} value={kb.id}>
+                {kb.name} ({kb.document_count} doc{kb.document_count !== 1 ? 's' : ''})
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Attach a knowledge base to give the agent the <code>search_kb</code> tool.
+          </p>
         </div>
 
         {error && (

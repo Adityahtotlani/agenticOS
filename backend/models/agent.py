@@ -13,6 +13,7 @@ class Agent(Base):
     status = Column(String, default="idle")  # idle, running, paused, dead
     parent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
     system_prompt = Column(Text, default="You are a helpful AI agent.")
+    knowledge_base_id = Column(Integer, ForeignKey("knowledge_bases.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

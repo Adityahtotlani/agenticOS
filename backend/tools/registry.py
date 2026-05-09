@@ -1,9 +1,10 @@
 import json
-from typing import Any
+from typing import Any, List, Dict, Optional
 from tools.web_search import web_search
 from tools.code_exec import execute_python
 from tools.file_ops import read_file, write_file
 from tools.spawn_agent_tool import spawn_child_agent
+from tools.search_kb import search_kb, SEARCH_KB_SCHEMA
 
 # Tool definitions for Claude's API
 TOOL_SCHEMAS = [
@@ -110,19 +111,30 @@ TOOL_FUNCTIONS = {
     "read_file": read_file,
     "write_file": write_file,
     "spawn_child_agent": spawn_child_agent,
+    "search_kb": search_kb,
 }
 
 
-async def execute_tool(name: str, input_data: Any) -> str:
+def build_tool_schemas(knowledge_base_id: Optional[int] = None) -> List[Dict]:
+    """Build the tool schema list shown to Claude. Adds search_kb iff the agent has a KB."""
+    schemas = list(TOOL_SCHEMAS)
+    if knowledge_base_id is not None:
+        schemas.append(SEARCH_KB_SCHEMA)
+    return schemas
+
+
+async def execute_tool(name: str, input_data: Any, knowledge_base_id: Optional[int] = None) -> str:
     """Execute a tool by name with the given input."""
     if name not in TOOL_FUNCTIONS:
         return json.dumps({"error": f"Unknown tool: {name}"})
 
     tool_fn = TOOL_FUNCTIONS[name]
     try:
-        # Handle both dict and parsed input
         if isinstance(input_data, dict):
-            result = await tool_fn(**input_data)
+            kwargs = dict(input_data)
+            if name == "search_kb":
+                kwargs["kb_id"] = knowledge_base_id
+            result = await tool_fn(**kwargs)
         else:
             result = await tool_fn(input_data)
         return result

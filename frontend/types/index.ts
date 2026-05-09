@@ -5,6 +5,21 @@ export interface Agent {
   status: string
   parent_id: number | null
   system_prompt?: string
+  knowledge_base_id?: number | null
+}
+
+export interface KnowledgeBase {
+  id: number
+  name: string
+  description: string
+  document_count: number
+}
+
+export interface KBDocument {
+  id: number
+  kb_id: number
+  filename: string
+  chunks_count: number
 }
 
 export interface AgentTemplate {

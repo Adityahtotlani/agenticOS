@@ -14,6 +14,7 @@ class AgentCreate(BaseModel):
     model: str = "claude-sonnet-4-6"
     parent_id: int = None
     system_prompt: str = None
+    knowledge_base_id: int = None
 
 
 class AgentResponse(BaseModel):
@@ -23,6 +24,7 @@ class AgentResponse(BaseModel):
     status: str
     parent_id: int = None
     system_prompt: str = None
+    knowledge_base_id: int = None
 
     class Config:
         from_attributes = True
@@ -40,6 +42,7 @@ def create_agent(agent_in: AgentCreate, db: Session = Depends(get_db)):
         "name": agent_in.name,
         "model": agent_in.model,
         "parent_id": agent_in.parent_id,
+        "knowledge_base_id": agent_in.knowledge_base_id,
         "status": "idle",
     }
     if agent_in.system_prompt:
