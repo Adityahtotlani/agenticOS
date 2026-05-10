@@ -116,6 +116,19 @@ export interface Memory {
   created_at: string
 }
 
+export interface ScheduledJob {
+  id: number
+  name: string
+  agent_id: number
+  cron_expr: string
+  task_title: string
+  task_description: string
+  enabled: boolean
+  webhook_token: string | null
+  last_run_at: string | null
+  created_at: string
+}
+
 export type TerminalEntry =
   | { type: 'text'; content: string }
   | { type: 'tool_call'; name: string; input: string }

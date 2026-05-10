@@ -4,6 +4,7 @@ from .memory import Memory
 from .knowledge_base import KnowledgeBase, Document
 from .mcp_server import MCPServer
 from .agent_run import AgentRun
+from .scheduled_job import ScheduledJob
 
 __all__ = [
     "Agent",
@@ -13,4 +14,5 @@ __all__ = [
     "Document",
     "MCPServer",
     "AgentRun",
+    "ScheduledJob",
 ]

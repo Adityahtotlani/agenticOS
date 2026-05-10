@@ -43,3 +43,19 @@ def apply_lightweight_migrations() -> None:
             if column not in cols:
                 conn.execute(text(ddl))
                 conn.commit()
+
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS scheduled_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                agent_id INTEGER NOT NULL REFERENCES agents(id),
+                cron_expr TEXT NOT NULL,
+                task_title TEXT NOT NULL,
+                task_description TEXT DEFAULT '',
+                enabled INTEGER DEFAULT 1,
+                webhook_token TEXT UNIQUE,
+                last_run_at TEXT,
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+        """))
+        conn.commit()
