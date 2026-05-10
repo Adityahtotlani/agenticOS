@@ -1,14 +1,21 @@
 import json
+import time
 import uuid
+from datetime import datetime
 from typing import AsyncGenerator, List
 from anthropic import Anthropic
 from database import SessionLocal
-from models import Agent, Task, Memory, MCPServer
+from models import Agent, Task, Memory, MCPServer, AgentRun
 from config import settings
+from pricing import compute_cost
 from tools import build_tool_schemas, execute_tool, RISKY_TOOLS
 from agents.user_input import wait_for_response
 from mcp_client import MCPSessionGroup
 from mcp_client.manager import MCPServerConfig, unqualify, TOOL_PREFIX
+
+
+class BudgetExceeded(Exception):
+    pass
 
 
 class AgentRuntime:
@@ -62,7 +69,14 @@ class AgentRuntime:
             # Spawn attached MCP servers for the lifetime of this task
             async with MCPSessionGroup(mcp_configs) as mcp_group:
                 async for chunk in self._run_tool_loop(
-                    messages, system_prompt, db, self.agent_id, task_id, kb_id, mcp_group
+                    messages,
+                    system_prompt,
+                    db,
+                    self.agent_id,
+                    task_id,
+                    kb_id,
+                    mcp_group,
+                    model=agent.model or "claude-sonnet-4-6",
                 ):
                     yield chunk
 
@@ -74,6 +88,16 @@ class AgentRuntime:
             task.result = "Task completed successfully"
             db.commit()
 
+        except BudgetExceeded as e:
+            agent = db.query(Agent).filter(Agent.id == self.agent_id).first()
+            task = db.query(Task).filter(Task.id == task_id).first()
+            if agent:
+                agent.status = "paused"  # not dead — user can raise the cap and retry
+            if task:
+                task.status = "failed"
+                task.result = str(e)
+            db.commit()
+            yield json.dumps({"type": "budget_exceeded", "message": str(e)})
         except Exception as e:
             agent = db.query(Agent).filter(Agent.id == self.agent_id).first()
             task = db.query(Task).filter(Task.id == task_id).first()
@@ -87,6 +111,39 @@ class AgentRuntime:
         finally:
             self.running = False
             db.close()
+
+    def _enforce_budget(self, db) -> None:
+        """Raise BudgetExceeded if the agent has hit its budget cap."""
+        agent = db.query(Agent).filter(Agent.id == self.agent_id).first()
+        if not agent or agent.budget_usd is None:
+            return
+        if (agent.spent_usd or 0.0) >= agent.budget_usd:
+            raise BudgetExceeded(
+                f"Agent {self.agent_id} has spent ${agent.spent_usd:.4f} which meets or exceeds budget ${agent.budget_usd:.4f}"
+            )
+
+    def _record_run(self, db, run: AgentRun, response, t0: float) -> None:
+        """Capture usage from a finished stream onto the AgentRun row and bump agent.spent_usd."""
+        usage = getattr(response, "usage", None)
+        input_tokens = getattr(usage, "input_tokens", 0) or 0
+        output_tokens = getattr(usage, "output_tokens", 0) or 0
+        cache_creation = getattr(usage, "cache_creation_input_tokens", 0) or 0
+        cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+        cost = compute_cost(run.model, input_tokens, output_tokens, cache_creation, cache_read)
+
+        run.ended_at = datetime.utcnow()
+        run.latency_ms = int((time.perf_counter() - t0) * 1000)
+        run.input_tokens = input_tokens
+        run.output_tokens = output_tokens
+        run.cache_creation_tokens = cache_creation
+        run.cache_read_tokens = cache_read
+        run.cost_usd = cost
+        run.stop_reason = getattr(response, "stop_reason", None)
+
+        agent = db.query(Agent).filter(Agent.id == self.agent_id).first()
+        if agent:
+            agent.spent_usd = round((agent.spent_usd or 0.0) + cost, 6)
+        db.commit()
 
     def _load_mcp_configs(self, db, server_ids: List[int]) -> List[MCPServerConfig]:
         if not server_ids:
@@ -112,28 +169,56 @@ class AgentRuntime:
         task_id: int,
         kb_id: int = None,
         mcp_group: MCPSessionGroup = None,
+        model: str = "claude-sonnet-4-6",
     ) -> AsyncGenerator[str, None]:
         """Multi-turn loop for tool use and streaming."""
         tool_schemas = build_tool_schemas(knowledge_base_id=kb_id)
         if mcp_group is not None:
             tool_schemas = tool_schemas + mcp_group.tool_schemas()
         while True:
-            # Stream response from Claude with tools
-            with self.client.messages.stream(
-                model="claude-sonnet-4-6",
-                max_tokens=2048,
-                system=system_prompt,
-                messages=messages,
-                tools=tool_schemas
-            ) as stream:
-                # Stream text tokens as they arrive
-                full_response = ""
-                for text in stream.text_stream:
-                    full_response += text
-                    yield json.dumps({"type": "output", "chunk": text})
+            self._enforce_budget(db)
 
-                # Get final message after stream ends
-                response = stream.get_final_message()
+            run = AgentRun(
+                agent_id=self.agent_id,
+                task_id=task_id,
+                model=model,
+                started_at=datetime.utcnow(),
+            )
+            db.add(run)
+            db.commit()
+            db.refresh(run)
+
+            t0 = time.perf_counter()
+            try:
+                with self.client.messages.stream(
+                    model=model,
+                    max_tokens=2048,
+                    system=system_prompt,
+                    messages=messages,
+                    tools=tool_schemas,
+                ) as stream:
+                    full_response = ""
+                    for text in stream.text_stream:
+                        full_response += text
+                        yield json.dumps({"type": "output", "chunk": text})
+                    response = stream.get_final_message()
+            except Exception as e:
+                run.ended_at = datetime.utcnow()
+                run.latency_ms = int((time.perf_counter() - t0) * 1000)
+                run.error = f"{type(e).__name__}: {e}"
+                db.commit()
+                raise
+
+            self._record_run(db, run, response, t0)
+            yield json.dumps({
+                "type": "usage",
+                "run_id": run.id,
+                "model": run.model,
+                "input_tokens": run.input_tokens,
+                "output_tokens": run.output_tokens,
+                "cost_usd": run.cost_usd,
+                "latency_ms": run.latency_ms,
+            })
 
             # Save assistant message to memory
             memory = Memory(

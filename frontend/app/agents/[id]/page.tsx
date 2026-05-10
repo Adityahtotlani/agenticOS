@@ -75,11 +75,31 @@ export default function AgentDetailPage() {
     return <div className="p-8 text-gray-400">Loading...</div>
   }
 
+  const spent = agent.spent_usd ?? 0
+  const budget = agent.budget_usd ?? null
+  const overBudget = budget !== null && spent >= budget
+
+  const handleRaiseBudget = async () => {
+    const input = prompt('New budget (USD). Leave empty to remove cap.', budget?.toString() ?? '')
+    if (input === null) return
+    const value = input.trim() === '' ? null : parseFloat(input)
+    try {
+      await fetch(`${API_BASE}/api/agents/${agentId}/budget`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ budget_usd: value }),
+      })
+      fetchAgent()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   return (
     <div className="p-8 flex flex-col h-screen">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">{agent.name}</h1>
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-4 text-sm flex-wrap">
           <span className="text-gray-400">Model: {agent.model}</span>
           <span className={`px-2 py-1 rounded text-xs ${
             agent.status === 'idle' ? 'bg-green-900' :
@@ -101,6 +121,19 @@ export default function AgentDetailPage() {
             className="px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-xs transition-colors"
           >
             Kill
+          </button>
+          <button
+            onClick={handleRaiseBudget}
+            className={`px-3 py-1 rounded text-xs transition-colors ${
+              overBudget ? 'bg-red-800 hover:bg-red-700' : 'bg-gray-700 hover:bg-gray-600'
+            }`}
+            title="Edit budget cap"
+          >
+            Spent ${spent.toFixed(spent < 1 ? 4 : 2)}
+            {budget !== null && (
+              <span className="opacity-70"> / ${budget.toFixed(2)}</span>
+            )}
+            {overBudget && ' — capped'}
           </button>
         </div>
       </div>

@@ -16,6 +16,7 @@ class AgentCreate(BaseModel):
     system_prompt: str = None
     knowledge_base_id: int = None
     mcp_server_ids: List[int] = []
+    budget_usd: float | None = None
 
 
 class AgentResponse(BaseModel):
@@ -27,6 +28,8 @@ class AgentResponse(BaseModel):
     system_prompt: str = None
     knowledge_base_id: int = None
     mcp_server_ids: List[int] = []
+    budget_usd: float | None = None
+    spent_usd: float = 0.0
 
     class Config:
         from_attributes = True
@@ -46,6 +49,7 @@ def create_agent(agent_in: AgentCreate, db: Session = Depends(get_db)):
         "parent_id": agent_in.parent_id,
         "knowledge_base_id": agent_in.knowledge_base_id,
         "mcp_server_ids": agent_in.mcp_server_ids or [],
+        "budget_usd": agent_in.budget_usd,
         "status": "idle",
     }
     if agent_in.system_prompt:
@@ -73,6 +77,21 @@ def delete_agent_endpoint(agent_id: int, db: Session = Depends(get_db)):
     db.delete(agent)
     db.commit()
     return {"ok": True}
+
+
+class AgentBudgetUpdate(BaseModel):
+    budget_usd: float | None = None
+
+
+@router.patch("/{agent_id}/budget", response_model=AgentResponse)
+def update_agent_budget(agent_id: int, payload: AgentBudgetUpdate, db: Session = Depends(get_db)):
+    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    agent.budget_usd = payload.budget_usd
+    db.commit()
+    db.refresh(agent)
+    return agent
 
 
 @router.post("/{agent_id}/pause")

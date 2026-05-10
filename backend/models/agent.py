@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, JSON, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -15,6 +15,8 @@ class Agent(Base):
     system_prompt = Column(Text, default="You are a helpful AI agent.")
     knowledge_base_id = Column(Integer, ForeignKey("knowledge_bases.id"), nullable=True)
     mcp_server_ids = Column(JSON, default=list)  # list[int]
+    budget_usd = Column(Float, nullable=True)
+    spent_usd = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

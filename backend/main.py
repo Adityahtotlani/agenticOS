@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import Base, engine, apply_lightweight_migrations
-from api import agents, tasks, ws, memory, templates, knowledge_bases, mcp_servers
-from models import Agent, Task, Memory, KnowledgeBase, Document, MCPServer
+from api import agents, tasks, ws, memory, templates, knowledge_bases, mcp_servers, metrics
+from models import Agent, Task, Memory, KnowledgeBase, Document, MCPServer, AgentRun
 
 # Create tables and apply additive column migrations for upgraded DBs
 Base.metadata.create_all(bind=engine)
@@ -28,6 +28,7 @@ app.include_router(memory.router)
 app.include_router(templates.router)
 app.include_router(knowledge_bases.router)
 app.include_router(mcp_servers.router)
+app.include_router(metrics.router)
 app.include_router(ws.router)
 
 

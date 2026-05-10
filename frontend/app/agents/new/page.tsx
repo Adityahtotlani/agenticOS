@@ -17,6 +17,7 @@ export default function NewAgentPage() {
   const [systemPrompt, setSystemPrompt] = useState('')
   const [knowledgeBaseId, setKnowledgeBaseId] = useState<string>('')
   const [selectedMcpIds, setSelectedMcpIds] = useState<number[]>([])
+  const [budgetUsd, setBudgetUsd] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -72,6 +73,7 @@ export default function NewAgentPage() {
           system_prompt: systemPrompt || undefined,
           knowledge_base_id: knowledgeBaseId ? parseInt(knowledgeBaseId) : undefined,
           mcp_server_ids: selectedMcpIds,
+          budget_usd: budgetUsd ? parseFloat(budgetUsd) : undefined,
         }),
       })
 
@@ -230,6 +232,24 @@ export default function NewAgentPage() {
           )}
           <p className="text-xs text-gray-500 mt-1">
             Selected servers spawn for the lifetime of each task and expose their tools to the agent.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Budget cap (USD) <span className="text-gray-500 font-normal">(optional)</span>
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={budgetUsd}
+            onChange={(e) => setBudgetUsd(e.target.value)}
+            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-blue-500"
+            placeholder="e.g., 5.00 — leave empty for unlimited"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Agent pauses automatically when its cumulative spend reaches this cap. You can raise it later.
           </p>
         </div>
 

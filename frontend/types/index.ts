@@ -7,6 +7,50 @@ export interface Agent {
   system_prompt?: string
   knowledge_base_id?: number | null
   mcp_server_ids?: number[]
+  budget_usd?: number | null
+  spent_usd?: number
+}
+
+export interface MetricsSummary {
+  days: number
+  total_runs: number
+  total_errors: number
+  error_rate: number
+  total_cost_usd: number
+  total_input_tokens: number
+  total_output_tokens: number
+  total_cache_read_tokens: number
+  avg_latency_ms: number
+}
+
+export interface AgentMetric {
+  agent_id: number
+  agent_name: string
+  runs: number
+  cost_usd: number
+  tokens: number
+  avg_latency_ms: number
+}
+
+export interface TimeseriesPoint {
+  bucket: string
+  runs: number
+  cost_usd: number
+}
+
+export interface AgentRun {
+  id: number
+  agent_id: number
+  agent_name: string
+  task_id: number | null
+  model: string
+  started_at: string | null
+  latency_ms: number
+  input_tokens: number
+  output_tokens: number
+  cost_usd: number
+  stop_reason: string | null
+  error: string | null
 }
 
 export interface MCPServer {

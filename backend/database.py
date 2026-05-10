@@ -24,6 +24,8 @@ _PATCHES = [
     ("agents", "mcp_server_ids", "ALTER TABLE agents ADD COLUMN mcp_server_ids JSON DEFAULT '[]'"),
     ("agents", "knowledge_base_id", "ALTER TABLE agents ADD COLUMN knowledge_base_id INTEGER"),
     ("agents", "system_prompt", "ALTER TABLE agents ADD COLUMN system_prompt TEXT"),
+    ("agents", "budget_usd", "ALTER TABLE agents ADD COLUMN budget_usd FLOAT"),
+    ("agents", "spent_usd", "ALTER TABLE agents ADD COLUMN spent_usd FLOAT DEFAULT 0.0"),
 ]
 
 
