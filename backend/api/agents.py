@@ -1,9 +1,12 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from database import get_db
 from models import Agent
+from models.mcp_server import MCPServer
 from agents import spawn_agent, list_agents as list_all_agents, get_agent, delete_agent
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
@@ -118,3 +121,57 @@ def kill_agent(agent_id: int, db: Session = Depends(get_db)):
 def get_agent_children(agent_id: int, db: Session = Depends(get_db)):
     children = db.query(Agent).filter(Agent.parent_id == agent_id).all()
     return children
+
+
+@router.get("/{agent_id}/export")
+def export_agent(agent_id: int, db: Session = Depends(get_db)):
+    agent = db.query(Agent).filter(Agent.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    mcp_names = []
+    if agent.mcp_server_ids:
+        ids = agent.mcp_server_ids if isinstance(agent.mcp_server_ids, list) else json.loads(agent.mcp_server_ids)
+        servers = db.query(MCPServer).filter(MCPServer.id.in_(ids)).all()
+        mcp_names = [s.name for s in servers]
+
+    bundle = {
+        "agentios_export_version": 1,
+        "name": agent.name,
+        "model": agent.model,
+        "system_prompt": agent.system_prompt or "",
+        "budget_usd": agent.budget_usd,
+        "mcp_server_names": mcp_names,
+    }
+    return bundle
+
+
+class AgentImportPayload(BaseModel):
+    agentios_export_version: int = 1
+    name: str
+    model: str = "claude-sonnet-4-6"
+    system_prompt: str = ""
+    budget_usd: Optional[float] = None
+    mcp_server_names: List[str] = []
+
+
+@router.post("/import", response_model=AgentResponse)
+def import_agent(payload: AgentImportPayload, db: Session = Depends(get_db)):
+    mcp_ids = []
+    for name in payload.mcp_server_names:
+        server = db.query(MCPServer).filter(func.lower(MCPServer.name) == name.lower()).first()
+        if server:
+            mcp_ids.append(server.id)
+
+    agent = Agent(
+        name=payload.name,
+        model=payload.model,
+        system_prompt=payload.system_prompt or None,
+        budget_usd=payload.budget_usd,
+        mcp_server_ids=mcp_ids if mcp_ids else None,
+        status="idle",
+    )
+    db.add(agent)
+    db.commit()
+    db.refresh(agent)
+    return agent

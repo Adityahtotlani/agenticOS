@@ -71,6 +71,18 @@ export default function AgentDetailPage() {
     }
   }
 
+  const handleExport = async () => {
+    const res = await fetch(`${API_BASE}/api/agents/${agentId}/export`)
+    const bundle = await res.json()
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${agent!.name.replace(/\s+/g, '_')}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (loading || !agent) {
     return <div className="p-8 text-gray-400">Loading...</div>
   }
@@ -121,6 +133,12 @@ export default function AgentDetailPage() {
             className="px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-xs transition-colors"
           >
             Kill
+          </button>
+          <button
+            onClick={handleExport}
+            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors"
+          >
+            Export
           </button>
           <button
             onClick={handleRaiseBudget}

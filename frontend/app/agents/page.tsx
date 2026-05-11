@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { API_BASE } from '@/lib/api'
 import AgentCard from '@/components/AgentCard'
-import { Plus } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 
 interface Agent {
   id: number
@@ -17,6 +17,23 @@ interface Agent {
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
+  const importInputRef = useRef<HTMLInputElement>(null)
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const text = await file.text()
+    const bundle = JSON.parse(text)
+    const res = await fetch(`${API_BASE}/api/agents/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bundle),
+    })
+    if (res.ok) {
+      fetchAgents()
+    }
+    e.target.value = ''
+  }
 
   useEffect(() => {
     fetchAgents()
@@ -37,13 +54,29 @@ export default function AgentsPage() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Agents</h1>
-        <Link
-          href="/agents/new"
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors"
-        >
-          <Plus size={20} />
-          New Agent
-        </Link>
+        <div className="flex items-center gap-2">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleImport}
+          />
+          <button
+            onClick={() => importInputRef.current?.click()}
+            className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors"
+          >
+            <Upload size={20} />
+            Import Agent
+          </button>
+          <Link
+            href="/agents/new"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors"
+          >
+            <Plus size={20} />
+            New Agent
+          </Link>
+        </div>
       </div>
 
       {loading ? (
