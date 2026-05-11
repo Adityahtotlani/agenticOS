@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { API_BASE } from '@/lib/api'
-import { Task, Agent } from '@/types'
+import { Task, Agent, Attachment } from '@/types'
 
 interface TaskWithAgent extends Task {
   agent?: Agent
@@ -17,9 +17,13 @@ export default function TaskDetailPage() {
   const [subtasks, setSubtasks] = useState<Task[]>([])
   const [agents, setAgents] = useState<Map<number, Agent>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [attachmentData, setAttachmentData] = useState<Record<number, string>>({})
+  const addFileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchTask()
+    fetchAttachments()
     const interval = setInterval(fetchTask, 3000)
     return () => clearInterval(interval)
   }, [taskId])
@@ -49,6 +53,45 @@ export default function TaskDetailPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchAttachments = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/tasks/${taskId}/attachments`)
+      const list: Attachment[] = await res.json()
+      setAttachments(list)
+      for (const att of list) {
+        const r = await fetch(`${API_BASE}/api/attachments/${att.id}/data`)
+        const { data, mime_type } = await r.json()
+        setAttachmentData(prev => ({ ...prev, [att.id]: `data:${mime_type};base64,${data}` }))
+      }
+    } catch (error) {
+      console.error('Failed to fetch attachments:', error)
+    }
+  }
+
+  const handleAddAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    for (const file of files) {
+      const fd = new FormData()
+      fd.append('file', file)
+      await fetch(`${API_BASE}/api/tasks/${taskId}/attachments`, {
+        method: 'POST',
+        body: fd,
+      })
+    }
+    await fetchAttachments()
+  }
+
+  const handleDeleteAttachment = async (attachmentId: number) => {
+    await fetch(`${API_BASE}/api/attachments/${attachmentId}`, { method: 'DELETE' })
+    setAttachments(prev => prev.filter(a => a.id !== attachmentId))
+    setAttachmentData(prev => {
+      const next = { ...prev }
+      delete next[attachmentId]
+      return next
+    })
   }
 
   const statusColor = {
@@ -118,7 +161,7 @@ export default function TaskDetailPage() {
           )}
           {task.result && (
             <div className="text-sm text-green-400 bg-green-900/20 px-3 py-1 rounded">
-              ✓ Completed
+              Completed
             </div>
           )}
         </div>
@@ -130,6 +173,56 @@ export default function TaskDetailPage() {
           <p className="text-gray-300 whitespace-pre-wrap">{task.result}</p>
         </div>
       )}
+
+      <div className="mb-8 bg-gray-800 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Attachments {attachments.length > 0 && `(${attachments.length})`}</h2>
+          <button
+            onClick={() => addFileInputRef.current?.click()}
+            className="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition-colors text-gray-300"
+          >
+            Add image
+          </button>
+          <input
+            ref={addFileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={handleAddAttachment}
+          />
+        </div>
+        {attachments.length === 0 ? (
+          <p className="text-gray-500 text-sm">No attachments</p>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            {attachments.map(att => (
+              <div key={att.id} className="relative group">
+                {attachmentData[att.id] ? (
+                  <img
+                    src={attachmentData[att.id]}
+                    alt={att.filename}
+                    className="max-h-48 rounded border border-gray-700 object-contain"
+                  />
+                ) : (
+                  <div className="w-32 h-32 bg-gray-900 rounded border border-gray-700 flex items-center justify-center text-gray-500 text-xs">
+                    Loading...
+                  </div>
+                )}
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <span className="text-xs text-gray-400 truncate max-w-[120px]">{att.filename}</span>
+                  <button
+                    onClick={() => handleDeleteAttachment(att.id)}
+                    className="text-xs text-red-400 hover:text-red-300 shrink-0"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="flex-1 overflow-y-auto">
         <h2 className="text-lg font-semibold mb-4">

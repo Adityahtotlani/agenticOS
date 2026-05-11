@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { API_BASE } from '@/lib/api'
 
 export default function NewTaskPage() {
@@ -11,6 +11,8 @@ export default function NewTaskPage() {
   const [agentId, setAgentId] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,6 +32,19 @@ export default function NewTaskPage() {
 
       if (!res.ok) {
         throw new Error('Failed to create task')
+      }
+
+      const newTask = await res.json()
+      const newTaskId = newTask.id
+
+      // Upload attachments after task creation
+      for (const file of attachmentFiles) {
+        const fd = new FormData()
+        fd.append('file', file)
+        await fetch(`${API_BASE}/api/tasks/${newTaskId}/attachments`, {
+          method: 'POST',
+          body: fd,
+        })
       }
 
       router.push('/tasks')
@@ -67,6 +82,50 @@ export default function NewTaskPage() {
             className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-blue-500"
             placeholder="Describe what the agent should do..."
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Image Attachments</label>
+          <div
+            className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
+              setAttachmentFiles(prev => [...prev, ...files])
+            }}
+          >
+            <p className="text-gray-400 text-sm">Drop images here or click to browse</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || [])
+                setAttachmentFiles(prev => [...prev, ...files])
+                e.target.value = ''
+              }}
+            />
+          </div>
+          {attachmentFiles.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {attachmentFiles.map((f, i) => (
+                <li key={i} className="flex items-center justify-between text-sm text-gray-300 bg-gray-900 px-3 py-1 rounded">
+                  <span>{f.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAttachmentFiles(prev => prev.filter((_, j) => j !== i))}
+                    className="text-red-400 hover:text-red-300 ml-2"
+                  >
+                    x
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div>

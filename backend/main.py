@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import Base, engine, apply_lightweight_migrations, SessionLocal
-from api import agents, tasks, ws, memory, templates, knowledge_bases, mcp_servers, metrics
+from api import agents, tasks, ws, memory, templates, knowledge_bases, mcp_servers, metrics, attachments
 from api import scheduled_jobs as scheduled_jobs_router
 from models import Agent, Task, Memory, KnowledgeBase, Document, MCPServer, AgentRun, ScheduledJob
 from scheduler import scheduler
@@ -48,6 +48,9 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
+    import os
+    os.makedirs("/app/data/attachments", exist_ok=True)
+
     scheduler.start()
     yield
     scheduler.shutdown()
@@ -79,6 +82,7 @@ app.include_router(mcp_servers.router)
 app.include_router(metrics.router)
 app.include_router(ws.router)
 app.include_router(scheduled_jobs_router.router)
+app.include_router(attachments.router)
 
 
 @app.get("/health")

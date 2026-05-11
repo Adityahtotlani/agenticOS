@@ -97,6 +97,12 @@ export interface AgentTemplate {
   system_prompt: string
 }
 
+export interface Attachment {
+  id: number
+  filename: string
+  mime_type: string
+}
+
 export interface Task {
   id: number
   title: string

@@ -1,11 +1,14 @@
 import json
 import time
 import uuid
+import base64
+import os
 from datetime import datetime
 from typing import AsyncGenerator, List
 from anthropic import Anthropic
 from database import SessionLocal
 from models import Agent, Task, Memory, MCPServer, AgentRun
+from models.attachment import Attachment
 from config import settings
 from pricing import compute_cost
 from tools import build_tool_schemas, execute_tool, RISKY_TOOLS
@@ -45,9 +48,31 @@ class AgentRuntime:
 
             # Get recent short-term history
             messages = self._get_message_history(db)
+
+            # Load attachments and build multimodal user message
+            task_attachments = db.query(Attachment).filter(Attachment.task_id == task_id).all()
+            user_content = []
+
+            for att in task_attachments:
+                try:
+                    with open(att.filepath, "rb") as f:
+                        img_data = base64.b64encode(f.read()).decode()
+                    user_content.append({
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": att.mime_type,
+                            "data": img_data,
+                        }
+                    })
+                except Exception:
+                    pass  # skip unreadable files
+
+            user_content.append({"type": "text", "text": f"Task: {task.title}\n\n{task.description}"})
+
             messages.append({
                 "role": "user",
-                "content": f"Task: {task.title}\n\n{task.description}"
+                "content": user_content,
             })
 
             # Build system prompt with long-term context

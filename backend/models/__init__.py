@@ -5,6 +5,7 @@ from .knowledge_base import KnowledgeBase, Document
 from .mcp_server import MCPServer
 from .agent_run import AgentRun
 from .scheduled_job import ScheduledJob
+from .attachment import Attachment
 
 __all__ = [
     "Agent",
@@ -15,4 +16,5 @@ __all__ = [
     "MCPServer",
     "AgentRun",
     "ScheduledJob",
+    "Attachment",
 ]

@@ -58,4 +58,14 @@ def apply_lightweight_migrations() -> None:
                 created_at TEXT DEFAULT (datetime('now'))
             )
         """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS attachments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id INTEGER NOT NULL REFERENCES tasks(id),
+                filename TEXT NOT NULL,
+                mime_type TEXT NOT NULL,
+                filepath TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+        """))
         conn.commit()
