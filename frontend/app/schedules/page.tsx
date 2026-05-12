@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { API_BASE } from '@/lib/api'
+import { apiFetch, API_BASE } from '@/lib/api'
 import { ScheduledJob, Agent } from '@/types'
 
 const emptyForm = {
@@ -23,8 +23,8 @@ export default function SchedulesPage() {
 
   async function fetchAll() {
     const [jobsRes, agentsRes] = await Promise.all([
-      fetch(`${API_BASE}/api/scheduled-jobs`),
-      fetch(`${API_BASE}/api/agents/`),
+      apiFetch('/api/scheduled-jobs'),
+      apiFetch('/api/agents/'),
     ])
     setJobs(await jobsRes.json())
     setAgents(await agentsRes.json())
@@ -47,9 +47,8 @@ export default function SchedulesPage() {
     }
     setSubmitting(true)
     try {
-      const res = await fetch(`${API_BASE}/api/scheduled-jobs`, {
+      const res = await apiFetch('/api/scheduled-jobs', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
           agent_id: parseInt(form.agent_id),
@@ -68,9 +67,8 @@ export default function SchedulesPage() {
   }
 
   async function toggleEnabled(job: ScheduledJob) {
-    await fetch(`${API_BASE}/api/scheduled-jobs/${job.id}`, {
+    await apiFetch(`/api/scheduled-jobs/${job.id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: !job.enabled }),
     })
     await fetchAll()
@@ -78,7 +76,7 @@ export default function SchedulesPage() {
 
   async function handleDelete(id: number) {
     if (!confirm('Delete this scheduled job?')) return
-    await fetch(`${API_BASE}/api/scheduled-jobs/${id}`, { method: 'DELETE' })
+    await apiFetch(`/api/scheduled-jobs/${id}`, { method: 'DELETE' })
     await fetchAll()
   }
 

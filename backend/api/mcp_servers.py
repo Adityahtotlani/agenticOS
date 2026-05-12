@@ -5,8 +5,10 @@ from pydantic import BaseModel
 
 from database import get_db
 from models import MCPServer
+from models.user import User
 from mcp_client import list_tools_safe
 from mcp_client.manager import MCPServerConfig
+from auth import get_current_user
 
 router = APIRouter(prefix="/api/mcp-servers", tags=["mcp-servers"])
 
@@ -55,12 +57,12 @@ def _to_response(server: MCPServer) -> MCPServerResponse:
 
 
 @router.get("", response_model=List[MCPServerResponse])
-def list_servers(db: Session = Depends(get_db)):
-    return [_to_response(s) for s in db.query(MCPServer).all()]
+def list_servers(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return [_to_response(s) for s in db.query(MCPServer).filter(MCPServer.owner_id == current_user.id).all()]
 
 
 @router.post("", response_model=MCPServerResponse)
-def create_server(payload: MCPServerCreate, db: Session = Depends(get_db)):
+def create_server(payload: MCPServerCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     server = MCPServer(
         name=payload.name,
         description=payload.description,
@@ -68,6 +70,7 @@ def create_server(payload: MCPServerCreate, db: Session = Depends(get_db)):
         args=payload.args,
         env=payload.env,
         enabled=payload.enabled,
+        owner_id=current_user.id,
     )
     db.add(server)
     db.commit()
@@ -76,16 +79,16 @@ def create_server(payload: MCPServerCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{server_id}", response_model=MCPServerResponse)
-def get_server(server_id: int, db: Session = Depends(get_db)):
-    server = db.query(MCPServer).filter(MCPServer.id == server_id).first()
+def get_server(server_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    server = db.query(MCPServer).filter(MCPServer.id == server_id, MCPServer.owner_id == current_user.id).first()
     if not server:
         raise HTTPException(status_code=404, detail="MCP server not found")
     return _to_response(server)
 
 
 @router.patch("/{server_id}", response_model=MCPServerResponse)
-def update_server(server_id: int, payload: MCPServerUpdate, db: Session = Depends(get_db)):
-    server = db.query(MCPServer).filter(MCPServer.id == server_id).first()
+def update_server(server_id: int, payload: MCPServerUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    server = db.query(MCPServer).filter(MCPServer.id == server_id, MCPServer.owner_id == current_user.id).first()
     if not server:
         raise HTTPException(status_code=404, detail="MCP server not found")
     data = payload.model_dump(exclude_unset=True)
@@ -97,8 +100,8 @@ def update_server(server_id: int, payload: MCPServerUpdate, db: Session = Depend
 
 
 @router.delete("/{server_id}")
-def delete_server(server_id: int, db: Session = Depends(get_db)):
-    server = db.query(MCPServer).filter(MCPServer.id == server_id).first()
+def delete_server(server_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    server = db.query(MCPServer).filter(MCPServer.id == server_id, MCPServer.owner_id == current_user.id).first()
     if not server:
         raise HTTPException(status_code=404, detail="MCP server not found")
     db.delete(server)
@@ -107,8 +110,8 @@ def delete_server(server_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{server_id}/test")
-async def test_server(server_id: int, db: Session = Depends(get_db)) -> Dict[str, Any]:
-    server = db.query(MCPServer).filter(MCPServer.id == server_id).first()
+async def test_server(server_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    server = db.query(MCPServer).filter(MCPServer.id == server_id, MCPServer.owner_id == current_user.id).first()
     if not server:
         raise HTTPException(status_code=404, detail="MCP server not found")
     cfg = MCPServerConfig(

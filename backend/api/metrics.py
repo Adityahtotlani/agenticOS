@@ -6,6 +6,8 @@ from sqlalchemy import func
 
 from database import get_db
 from models import AgentRun, Agent
+from models.user import User
+from auth import get_current_user
 
 router = APIRouter(prefix="/api/metrics", tags=["metrics"])
 
@@ -15,18 +17,27 @@ def _since(days: int) -> datetime:
 
 
 @router.get("/summary")
-def summary(days: int = Query(30, ge=1, le=365), db: Session = Depends(get_db)) -> Dict[str, Any]:
+def summary(days: int = Query(30, ge=1, le=365), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
     cutoff = _since(days)
-    base = db.query(AgentRun).filter(AgentRun.started_at >= cutoff)
+    base = (
+        db.query(AgentRun)
+        .join(Agent, AgentRun.agent_id == Agent.id)
+        .filter(AgentRun.started_at >= cutoff, Agent.owner_id == current_user.id)
+    )
     total_runs = base.count()
     total_errors = base.filter(AgentRun.error.isnot(None)).count()
-    agg = db.query(
-        func.coalesce(func.sum(AgentRun.cost_usd), 0.0),
-        func.coalesce(func.sum(AgentRun.input_tokens), 0),
-        func.coalesce(func.sum(AgentRun.output_tokens), 0),
-        func.coalesce(func.sum(AgentRun.cache_read_tokens), 0),
-        func.coalesce(func.avg(AgentRun.latency_ms), 0.0),
-    ).filter(AgentRun.started_at >= cutoff).one()
+    agg = (
+        db.query(
+            func.coalesce(func.sum(AgentRun.cost_usd), 0.0),
+            func.coalesce(func.sum(AgentRun.input_tokens), 0),
+            func.coalesce(func.sum(AgentRun.output_tokens), 0),
+            func.coalesce(func.sum(AgentRun.cache_read_tokens), 0),
+            func.coalesce(func.avg(AgentRun.latency_ms), 0.0),
+        )
+        .join(Agent, AgentRun.agent_id == Agent.id)
+        .filter(AgentRun.started_at >= cutoff, Agent.owner_id == current_user.id)
+        .one()
+    )
     cost, input_tokens, output_tokens, cache_read, avg_latency = agg
     return {
         "days": days,
@@ -42,7 +53,7 @@ def summary(days: int = Query(30, ge=1, le=365), db: Session = Depends(get_db)) 
 
 
 @router.get("/by-agent")
-def by_agent(days: int = Query(30, ge=1, le=365), db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
+def by_agent(days: int = Query(30, ge=1, le=365), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
     cutoff = _since(days)
     rows = (
         db.query(
@@ -52,11 +63,12 @@ def by_agent(days: int = Query(30, ge=1, le=365), db: Session = Depends(get_db))
             func.coalesce(func.sum(AgentRun.input_tokens + AgentRun.output_tokens), 0),
             func.coalesce(func.avg(AgentRun.latency_ms), 0.0),
         )
-        .filter(AgentRun.started_at >= cutoff)
+        .join(Agent, AgentRun.agent_id == Agent.id)
+        .filter(AgentRun.started_at >= cutoff, Agent.owner_id == current_user.id)
         .group_by(AgentRun.agent_id)
         .all()
     )
-    agent_names = {a.id: a.name for a in db.query(Agent).all()}
+    agent_names = {a.id: a.name for a in db.query(Agent).filter(Agent.owner_id == current_user.id).all()}
     out = []
     for agent_id, runs, cost, tokens, avg_latency in rows:
         out.append({
@@ -76,6 +88,7 @@ def timeseries(
     days: int = Query(30, ge=1, le=365),
     bucket: str = Query("day", regex="^(hour|day)$"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> List[Dict[str, Any]]:
     """Cost + run count bucketed by hour or day. SQLite-friendly via strftime."""
     cutoff = _since(days)
@@ -87,7 +100,8 @@ def timeseries(
             func.count(AgentRun.id),
             func.coalesce(func.sum(AgentRun.cost_usd), 0.0),
         )
-        .filter(AgentRun.started_at >= cutoff)
+        .join(Agent, AgentRun.agent_id == Agent.id)
+        .filter(AgentRun.started_at >= cutoff, Agent.owner_id == current_user.id)
         .group_by(bucket_expr)
         .order_by(bucket_expr)
         .all()
@@ -103,12 +117,18 @@ def recent_runs(
     limit: int = Query(50, ge=1, le=500),
     agent_id: Optional[int] = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> List[Dict[str, Any]]:
-    q = db.query(AgentRun).order_by(AgentRun.id.desc())
+    q = (
+        db.query(AgentRun)
+        .join(Agent, AgentRun.agent_id == Agent.id)
+        .filter(Agent.owner_id == current_user.id)
+        .order_by(AgentRun.id.desc())
+    )
     if agent_id is not None:
         q = q.filter(AgentRun.agent_id == agent_id)
     rows = q.limit(limit).all()
-    agent_names = {a.id: a.name for a in db.query(Agent).all()}
+    agent_names = {a.id: a.name for a in db.query(Agent).filter(Agent.owner_id == current_user.id).all()}
     return [
         {
             "id": r.id,

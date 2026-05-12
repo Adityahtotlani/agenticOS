@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 import AgentTerminal from '@/components/AgentTerminal'
 import { Agent, Task } from '@/types'
 
@@ -26,7 +26,7 @@ export default function AgentDetailPage() {
 
   const fetchAgent = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/agents/${agentId}`)
+      const res = await apiFetch(`/api/agents/${agentId}`)
       setAgent(await res.json())
     } catch (error) {
       console.error('Failed to fetch agent:', error)
@@ -37,7 +37,7 @@ export default function AgentDetailPage() {
 
   const fetchTasks = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/tasks`)
+      const res = await apiFetch('/api/tasks')
       setTasks(await res.json())
     } catch (error) {
       console.error('Failed to fetch tasks:', error)
@@ -46,7 +46,7 @@ export default function AgentDetailPage() {
 
   const fetchChildren = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/agents/${agentId}/children`)
+      const res = await apiFetch(`/api/agents/${agentId}/children`)
       setChildren(await res.json())
     } catch (error) {
       console.error('Failed to fetch children:', error)
@@ -55,7 +55,7 @@ export default function AgentDetailPage() {
 
   const handlePause = async () => {
     try {
-      await fetch(`${API_BASE}/api/agents/${agentId}/pause`, { method: 'POST' })
+      await apiFetch(`/api/agents/${agentId}/pause`, { method: 'POST' })
       fetchAgent()
     } catch (error) {
       console.error('Failed to pause agent:', error)
@@ -64,7 +64,7 @@ export default function AgentDetailPage() {
 
   const handleKill = async () => {
     try {
-      await fetch(`${API_BASE}/api/agents/${agentId}/kill`, { method: 'POST' })
+      await apiFetch(`/api/agents/${agentId}/kill`, { method: 'POST' })
       fetchAgent()
     } catch (error) {
       console.error('Failed to kill agent:', error)
@@ -72,7 +72,7 @@ export default function AgentDetailPage() {
   }
 
   const handleExport = async () => {
-    const res = await fetch(`${API_BASE}/api/agents/${agentId}/export`)
+    const res = await apiFetch(`/api/agents/${agentId}/export`)
     const bundle = await res.json()
     const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -96,9 +96,8 @@ export default function AgentDetailPage() {
     if (input === null) return
     const value = input.trim() === '' ? null : parseFloat(input)
     try {
-      await fetch(`${API_BASE}/api/agents/${agentId}/budget`, {
+      await apiFetch(`/api/agents/${agentId}/budget`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ budget_usd: value }),
       })
       fetchAgent()

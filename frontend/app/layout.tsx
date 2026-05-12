@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import Sidebar from '@/components/Sidebar'
+import AuthGuard from '@/components/AuthGuard'
 
 export const metadata: Metadata = {
   title: 'AgenticOS',
@@ -14,11 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="flex h-screen bg-gray-950">
-        <Sidebar />
-        <main className="flex-1 overflow-auto bg-gray-900">
+      <body className="bg-gray-950 text-white">
+        <AuthGuard>
           {children}
-        </main>
+        </AuthGuard>
       </body>
     </html>
   )

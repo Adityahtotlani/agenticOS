@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 import { KnowledgeBase } from '@/types'
 import { Plus, BookOpen, Trash2 } from 'lucide-react'
 
@@ -19,7 +19,7 @@ export default function KnowledgePage() {
 
   const fetchKbs = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/knowledge-bases`)
+      const res = await apiFetch('/api/knowledge-bases')
       setKbs(await res.json())
     } catch (e) {
       console.error('Failed to fetch knowledge bases:', e)
@@ -31,9 +31,8 @@ export default function KnowledgePage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const res = await fetch(`${API_BASE}/api/knowledge-bases`, {
+      const res = await apiFetch('/api/knowledge-bases', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, description }),
       })
       if (!res.ok) throw new Error('Failed to create')
@@ -49,7 +48,7 @@ export default function KnowledgePage() {
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this knowledge base and all its documents?')) return
     try {
-      await fetch(`${API_BASE}/api/knowledge-bases/${id}`, { method: 'DELETE' })
+      await apiFetch(`/api/knowledge-bases/${id}`, { method: 'DELETE' })
       fetchKbs()
     } catch (e) {
       console.error(e)

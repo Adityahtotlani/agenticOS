@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 import { WorkflowRun, WorkflowStepRun, Workflow } from '@/types'
 import { Agent } from '@/types'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
@@ -46,7 +46,7 @@ export default function WorkflowRunPage() {
 
   async function fetchRun() {
     try {
-      const res = await fetch(`${API_BASE}/api/workflow-runs/${id}`)
+      const res = await apiFetch(`/api/workflow-runs/${id}`)
       if (!res.ok) { setError('Run not found'); return }
       const data: WorkflowRun = await res.json()
       setRun(data)
@@ -61,8 +61,8 @@ export default function WorkflowRunPage() {
 
   async function fetchWorkflowAndAgents(workflowId: number) {
     const [wRes, aRes] = await Promise.all([
-      fetch(`${API_BASE}/api/workflows/${workflowId}`),
-      fetch(`${API_BASE}/api/agents`),
+      apiFetch(`/api/workflows/${workflowId}`),
+      apiFetch('/api/agents'),
     ])
     if (wRes.ok) setWorkflow(await wRes.json())
     if (aRes.ok) setAgents(await aRes.json())

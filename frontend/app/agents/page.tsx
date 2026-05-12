@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 import AgentCard from '@/components/AgentCard'
 import { Plus, Upload } from 'lucide-react'
 
@@ -24,9 +24,8 @@ export default function AgentsPage() {
     if (!file) return
     const text = await file.text()
     const bundle = JSON.parse(text)
-    const res = await fetch(`${API_BASE}/api/agents/import`, {
+    const res = await apiFetch('/api/agents/import', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bundle),
     })
     if (res.ok) {
@@ -41,7 +40,7 @@ export default function AgentsPage() {
 
   const fetchAgents = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/agents`)
+      const res = await apiFetch('/api/agents')
       setAgents(await res.json())
     } catch (error) {
       console.error('Failed to fetch agents:', error)

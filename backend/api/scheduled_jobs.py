@@ -11,7 +11,9 @@ from apscheduler.triggers.cron import CronTrigger
 from database import get_db, SessionLocal
 from models import Task
 from models.scheduled_job import ScheduledJob
+from models.user import User
 from scheduler import scheduler
+from auth import get_current_user
 
 router = APIRouter(tags=["scheduled_jobs"])
 
@@ -114,12 +116,12 @@ async def _run_scheduled_job(job_id: int) -> None:
 # ---------------------------------------------------------------------------
 
 @router.get("/api/scheduled-jobs", response_model=List[ScheduledJobResponse])
-def list_scheduled_jobs(db: Session = Depends(get_db)):
-    return db.query(ScheduledJob).all()
+def list_scheduled_jobs(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return db.query(ScheduledJob).filter(ScheduledJob.owner_id == current_user.id).all()
 
 
 @router.post("/api/scheduled-jobs", response_model=ScheduledJobResponse)
-def create_scheduled_job(payload: ScheduledJobCreate, db: Session = Depends(get_db)):
+def create_scheduled_job(payload: ScheduledJobCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         trigger = _cron_trigger(payload.cron_expr)
     except ValueError as exc:
@@ -133,6 +135,7 @@ def create_scheduled_job(payload: ScheduledJobCreate, db: Session = Depends(get_
         task_description=payload.task_description,
         enabled=payload.enabled,
         webhook_token=secrets.token_urlsafe(24),
+        owner_id=current_user.id,
     )
     db.add(job)
     db.commit()
@@ -151,8 +154,8 @@ def create_scheduled_job(payload: ScheduledJobCreate, db: Session = Depends(get_
 
 
 @router.patch("/api/scheduled-jobs/{job_id}", response_model=ScheduledJobResponse)
-def update_scheduled_job(job_id: int, payload: ScheduledJobUpdate, db: Session = Depends(get_db)):
-    job = db.query(ScheduledJob).filter(ScheduledJob.id == job_id).first()
+def update_scheduled_job(job_id: int, payload: ScheduledJobUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    job = db.query(ScheduledJob).filter(ScheduledJob.id == job_id, ScheduledJob.owner_id == current_user.id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Scheduled job not found")
 
@@ -195,8 +198,8 @@ def update_scheduled_job(job_id: int, payload: ScheduledJobUpdate, db: Session =
 
 
 @router.delete("/api/scheduled-jobs/{job_id}")
-def delete_scheduled_job(job_id: int, db: Session = Depends(get_db)):
-    job = db.query(ScheduledJob).filter(ScheduledJob.id == job_id).first()
+def delete_scheduled_job(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    job = db.query(ScheduledJob).filter(ScheduledJob.id == job_id, ScheduledJob.owner_id == current_user.id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Scheduled job not found")
 

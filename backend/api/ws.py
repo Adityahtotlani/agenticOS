@@ -1,11 +1,28 @@
 import asyncio
 import json
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from jose import jwt, JWTError
+from sqlalchemy.orm import Session
 
 from agents import get_agent_runtime
 from agents.user_input import push_response, clear_queue
+from config import settings
+from database import SessionLocal
+from models.user import User
 
 router = APIRouter(tags=["websocket"])
+
+
+async def _get_ws_user(token: str) -> User | None:
+    db: Session = SessionLocal()
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+        user_id = int(payload["sub"])
+        return db.query(User).filter(User.id == user_id).first()
+    except (JWTError, KeyError, ValueError):
+        return None
+    finally:
+        db.close()
 
 
 async def _client_reader(websocket: WebSocket, agent_id: int) -> None:
@@ -22,7 +39,12 @@ async def _client_reader(websocket: WebSocket, agent_id: int) -> None:
 
 
 @router.websocket("/ws/agents/{agent_id}/stream")
-async def websocket_agent_stream(websocket: WebSocket, agent_id: int):
+async def websocket_agent_stream(websocket: WebSocket, agent_id: int, token: str = Query(...)):
+    user = await _get_ws_user(token)
+    if not user:
+        await websocket.close(code=1008)
+        return
+
     await websocket.accept()
     reader_task: asyncio.Task | None = None
     try:

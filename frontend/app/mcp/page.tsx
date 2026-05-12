@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 import { MCPServer, MCPTestResult } from '@/types'
 import { Plus, Plug, Trash2, Play, CheckCircle, XCircle } from 'lucide-react'
 
@@ -23,7 +23,7 @@ export default function MCPPage() {
 
   const fetchServers = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/mcp-servers`)
+      const res = await apiFetch('/api/mcp-servers')
       setServers(await res.json())
     } catch (e) {
       console.error(e)
@@ -49,9 +49,8 @@ export default function MCPPage() {
       })
 
     try {
-      const res = await fetch(`${API_BASE}/api/mcp-servers`, {
+      const res = await apiFetch('/api/mcp-servers', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, description, command, args, env, enabled: true }),
       })
       if (!res.ok) throw new Error('Failed to create')
@@ -70,7 +69,7 @@ export default function MCPPage() {
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this MCP server config? Agents using it will lose access.')) return
     try {
-      await fetch(`${API_BASE}/api/mcp-servers/${id}`, { method: 'DELETE' })
+      await apiFetch(`/api/mcp-servers/${id}`, { method: 'DELETE' })
       fetchServers()
     } catch (e) {
       console.error(e)
@@ -80,7 +79,7 @@ export default function MCPPage() {
   const handleTest = async (id: number) => {
     setTesting(id)
     try {
-      const res = await fetch(`${API_BASE}/api/mcp-servers/${id}/test`, { method: 'POST' })
+      const res = await apiFetch(`/api/mcp-servers/${id}/test`, { method: 'POST' })
       const data: MCPTestResult = await res.json()
       setTestResults(prev => ({ ...prev, [id]: data }))
     } catch (e) {

@@ -12,7 +12,7 @@ import {
   BarChart,
   Bar,
 } from 'recharts'
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 import { MetricsSummary, AgentMetric, TimeseriesPoint, AgentRun } from '@/types'
 import { DollarSign, Zap, AlertTriangle, Clock } from 'lucide-react'
 
@@ -39,10 +39,10 @@ export default function MetricsPage() {
   const fetchAll = async () => {
     try {
       const [s, a, t, r] = await Promise.all([
-        fetch(`${API_BASE}/api/metrics/summary?days=${days}`).then(r => r.json()),
-        fetch(`${API_BASE}/api/metrics/by-agent?days=${days}`).then(r => r.json()),
-        fetch(`${API_BASE}/api/metrics/timeseries?days=${days}&bucket=${bucket}`).then(r => r.json()),
-        fetch(`${API_BASE}/api/metrics/recent-runs?limit=50`).then(r => r.json()),
+        apiFetch(`/api/metrics/summary?days=${days}`).then(r => r.json()),
+        apiFetch(`/api/metrics/by-agent?days=${days}`).then(r => r.json()),
+        apiFetch(`/api/metrics/timeseries?days=${days}&bucket=${bucket}`).then(r => r.json()),
+        apiFetch('/api/metrics/recent-runs?limit=50').then(r => r.json()),
       ])
       setSummary(s)
       setByAgent(a)

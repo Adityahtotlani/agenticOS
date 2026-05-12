@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 import { KnowledgeBase, KBDocument } from '@/types'
 import { Upload, Trash2, FileText, ArrowLeft } from 'lucide-react'
 
@@ -23,8 +23,8 @@ export default function KnowledgeBaseDetailPage() {
   const fetchData = async () => {
     try {
       const [kbRes, docsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/knowledge-bases/${kbId}`),
-        fetch(`${API_BASE}/api/knowledge-bases/${kbId}/documents`),
+        apiFetch(`/api/knowledge-bases/${kbId}`),
+        apiFetch(`/api/knowledge-bases/${kbId}/documents`),
       ])
       setKb(await kbRes.json())
       setDocuments(await docsRes.json())
@@ -41,7 +41,7 @@ export default function KnowledgeBaseDetailPage() {
     const formData = new FormData()
     formData.append('file', file)
     try {
-      const res = await fetch(`${API_BASE}/api/knowledge-bases/${kbId}/documents`, {
+      const res = await apiFetch(`/api/knowledge-bases/${kbId}/documents`, {
         method: 'POST',
         body: formData,
       })
@@ -61,7 +61,7 @@ export default function KnowledgeBaseDetailPage() {
   const handleDelete = async (docId: number) => {
     if (!confirm('Delete this document?')) return
     try {
-      await fetch(`${API_BASE}/api/knowledge-bases/${kbId}/documents/${docId}`, { method: 'DELETE' })
+      await apiFetch(`/api/knowledge-bases/${kbId}/documents/${docId}`, { method: 'DELETE' })
       fetchData()
     } catch (e) {
       console.error(e)

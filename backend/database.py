@@ -45,6 +45,26 @@ def apply_lightweight_migrations() -> None:
                 conn.commit()
 
         conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                hashed_password TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+        """))
+
+        for table in ["agents", "knowledge_bases", "mcp_servers", "scheduled_jobs", "workflows"]:
+            exists = conn.execute(
+                text(f"SELECT 1 FROM sqlite_master WHERE type='table' AND name='{table}'")
+            ).first()
+            if not exists:
+                continue
+            cols = [row[1] for row in conn.execute(text(f"PRAGMA table_info({table})")).fetchall()]
+            if "owner_id" not in cols:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN owner_id INTEGER REFERENCES users(id)"))
+        conn.commit()
+
+        conn.execute(text("""
             CREATE TABLE IF NOT EXISTS scheduled_jobs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,

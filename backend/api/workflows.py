@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from database import get_db, SessionLocal
 from models.workflow import Workflow, WorkflowStep, WorkflowRun, WorkflowStepRun
 from models import Task, Agent
+from models.user import User
+from auth import get_current_user
 
 router = APIRouter(tags=["workflows"])
 
@@ -137,22 +139,22 @@ def _run_out(run: WorkflowRun, db: Session) -> dict:
 
 
 @router.get("/api/workflows")
-def list_workflows(db: Session = Depends(get_db)):
-    workflows = db.query(Workflow).all()
+def list_workflows(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    workflows = db.query(Workflow).filter(Workflow.owner_id == current_user.id).all()
     return [_workflow_out(w, db) for w in workflows]
 
 
 @router.get("/api/workflows/{workflow_id}")
-def get_workflow(workflow_id: int, db: Session = Depends(get_db)):
-    w = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+def get_workflow(workflow_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    w = db.query(Workflow).filter(Workflow.id == workflow_id, Workflow.owner_id == current_user.id).first()
     if not w:
         raise HTTPException(404, "Not found")
     return _workflow_out(w, db)
 
 
 @router.post("/api/workflows")
-def create_workflow(payload: WorkflowCreate, db: Session = Depends(get_db)):
-    w = Workflow(name=payload.name, description=payload.description)
+def create_workflow(payload: WorkflowCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    w = Workflow(name=payload.name, description=payload.description, owner_id=current_user.id)
     db.add(w)
     db.flush()
     for i, s in enumerate(payload.steps):
@@ -171,8 +173,8 @@ def create_workflow(payload: WorkflowCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/api/workflows/{workflow_id}")
-def update_workflow(workflow_id: int, payload: WorkflowUpdate, db: Session = Depends(get_db)):
-    w = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+def update_workflow(workflow_id: int, payload: WorkflowUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    w = db.query(Workflow).filter(Workflow.id == workflow_id, Workflow.owner_id == current_user.id).first()
     if not w:
         raise HTTPException(404, "Not found")
     if payload.name is not None:
@@ -196,8 +198,8 @@ def update_workflow(workflow_id: int, payload: WorkflowUpdate, db: Session = Dep
 
 
 @router.delete("/api/workflows/{workflow_id}")
-def delete_workflow(workflow_id: int, db: Session = Depends(get_db)):
-    w = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+def delete_workflow(workflow_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    w = db.query(Workflow).filter(Workflow.id == workflow_id, Workflow.owner_id == current_user.id).first()
     if not w:
         raise HTTPException(404, "Not found")
     db.query(WorkflowStep).filter(WorkflowStep.workflow_id == workflow_id).delete()
@@ -207,15 +209,22 @@ def delete_workflow(workflow_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/api/workflow-runs/{run_id}")
-def get_run(run_id: int, db: Session = Depends(get_db)):
+def get_run(run_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     run = db.query(WorkflowRun).filter(WorkflowRun.id == run_id).first()
     if not run:
+        raise HTTPException(404, "Not found")
+    # verify workflow ownership
+    w = db.query(Workflow).filter(Workflow.id == run.workflow_id, Workflow.owner_id == current_user.id).first()
+    if not w:
         raise HTTPException(404, "Not found")
     return _run_out(run, db)
 
 
 @router.get("/api/workflows/{workflow_id}/runs")
-def list_runs(workflow_id: int, db: Session = Depends(get_db)):
+def list_runs(workflow_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    w = db.query(Workflow).filter(Workflow.id == workflow_id, Workflow.owner_id == current_user.id).first()
+    if not w:
+        raise HTTPException(404, "Not found")
     runs = (
         db.query(WorkflowRun)
         .filter(WorkflowRun.workflow_id == workflow_id)
@@ -227,7 +236,10 @@ def list_runs(workflow_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/api/workflows/{workflow_id}/run")
-async def trigger_run(workflow_id: int, db: Session = Depends(get_db)):
+async def trigger_run(workflow_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    w = db.query(Workflow).filter(Workflow.id == workflow_id, Workflow.owner_id == current_user.id).first()
+    if not w:
+        raise HTTPException(404, "Not found")
     steps = _get_steps(workflow_id, db)
     if not steps:
         raise HTTPException(400, "Workflow has no steps")

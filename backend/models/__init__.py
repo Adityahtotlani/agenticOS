@@ -7,6 +7,7 @@ from .agent_run import AgentRun
 from .scheduled_job import ScheduledJob
 from .attachment import Attachment
 from .workflow import Workflow, WorkflowStep, WorkflowRun, WorkflowStepRun
+from .user import User
 
 __all__ = [
     "Agent",
@@ -22,4 +23,5 @@ __all__ = [
     "WorkflowStep",
     "WorkflowRun",
     "WorkflowStepRun",
+    "User",
 ]

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 import { Task, Agent, Attachment } from '@/types'
 
 interface TaskWithAgent extends Task {
@@ -31,9 +31,9 @@ export default function TaskDetailPage() {
   const fetchTask = async () => {
     try {
       const [taskRes, subtasksRes, agentsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/tasks/${taskId}`),
-        fetch(`${API_BASE}/api/tasks/${taskId}/subtasks`),
-        fetch(`${API_BASE}/api/agents`)
+        apiFetch(`/api/tasks/${taskId}`),
+        apiFetch(`/api/tasks/${taskId}/subtasks`),
+        apiFetch('/api/agents')
       ])
 
       const taskData = await taskRes.json()
@@ -57,11 +57,11 @@ export default function TaskDetailPage() {
 
   const fetchAttachments = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/tasks/${taskId}/attachments`)
+      const res = await apiFetch(`/api/tasks/${taskId}/attachments`)
       const list: Attachment[] = await res.json()
       setAttachments(list)
       for (const att of list) {
-        const r = await fetch(`${API_BASE}/api/attachments/${att.id}/data`)
+        const r = await apiFetch(`/api/attachments/${att.id}/data`)
         const { data, mime_type } = await r.json()
         setAttachmentData(prev => ({ ...prev, [att.id]: `data:${mime_type};base64,${data}` }))
       }
@@ -76,7 +76,7 @@ export default function TaskDetailPage() {
     for (const file of files) {
       const fd = new FormData()
       fd.append('file', file)
-      await fetch(`${API_BASE}/api/tasks/${taskId}/attachments`, {
+      await apiFetch(`/api/tasks/${taskId}/attachments`, {
         method: 'POST',
         body: fd,
       })
@@ -85,7 +85,7 @@ export default function TaskDetailPage() {
   }
 
   const handleDeleteAttachment = async (attachmentId: number) => {
-    await fetch(`${API_BASE}/api/attachments/${attachmentId}`, { method: 'DELETE' })
+    await apiFetch(`/api/attachments/${attachmentId}`, { method: 'DELETE' })
     setAttachments(prev => prev.filter(a => a.id !== attachmentId))
     setAttachmentData(prev => {
       const next = { ...prev }

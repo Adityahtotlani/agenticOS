@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 import { AgentTemplate, KnowledgeBase, MCPServer } from '@/types'
 
 export default function NewAgentPage() {
@@ -25,9 +25,9 @@ export default function NewAgentPage() {
     const fetchInitialData = async () => {
       try {
         const [templatesRes, kbsRes, mcpRes] = await Promise.all([
-          fetch(`${API_BASE}/api/templates`),
-          fetch(`${API_BASE}/api/knowledge-bases`),
-          fetch(`${API_BASE}/api/mcp-servers`),
+          apiFetch('/api/templates'),
+          apiFetch('/api/knowledge-bases'),
+          apiFetch('/api/mcp-servers'),
         ])
         setTemplates(await templatesRes.json())
         setKnowledgeBases(await kbsRes.json())
@@ -64,9 +64,8 @@ export default function NewAgentPage() {
     setError('')
 
     try {
-      const res = await fetch(`${API_BASE}/api/agents`, {
+      const res = await apiFetch('/api/agents', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
           model,

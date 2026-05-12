@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useRef } from 'react'
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 
 export default function NewTaskPage() {
   const router = useRouter()
@@ -20,9 +20,8 @@ export default function NewTaskPage() {
     setError('')
 
     try {
-      const res = await fetch(`${API_BASE}/api/tasks`, {
+      const res = await apiFetch('/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
           description,
@@ -41,7 +40,7 @@ export default function NewTaskPage() {
       for (const file of attachmentFiles) {
         const fd = new FormData()
         fd.append('file', file)
-        await fetch(`${API_BASE}/api/tasks/${newTaskId}/attachments`, {
+        await apiFetch(`/api/tasks/${newTaskId}/attachments`, {
           method: 'POST',
           body: fd,
         })

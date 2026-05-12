@@ -5,7 +5,9 @@ from typing import List
 
 from database import get_db
 from models import KnowledgeBase, Document
+from models.user import User
 from rag import chunk_text, vector_store
+from auth import get_current_user
 
 router = APIRouter(prefix="/api/knowledge-bases", tags=["knowledge-bases"])
 
@@ -36,8 +38,8 @@ class DocumentResponse(BaseModel):
 
 
 @router.get("", response_model=List[KnowledgeBaseResponse])
-def list_knowledge_bases(db: Session = Depends(get_db)):
-    kbs = db.query(KnowledgeBase).all()
+def list_knowledge_bases(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    kbs = db.query(KnowledgeBase).filter(KnowledgeBase.owner_id == current_user.id).all()
     return [
         KnowledgeBaseResponse(
             id=kb.id,
@@ -50,8 +52,8 @@ def list_knowledge_bases(db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=KnowledgeBaseResponse)
-def create_knowledge_base(kb_in: KnowledgeBaseCreate, db: Session = Depends(get_db)):
-    kb = KnowledgeBase(name=kb_in.name, description=kb_in.description)
+def create_knowledge_base(kb_in: KnowledgeBaseCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    kb = KnowledgeBase(name=kb_in.name, description=kb_in.description, owner_id=current_user.id)
     db.add(kb)
     db.commit()
     db.refresh(kb)
@@ -59,8 +61,8 @@ def create_knowledge_base(kb_in: KnowledgeBaseCreate, db: Session = Depends(get_
 
 
 @router.get("/{kb_id}", response_model=KnowledgeBaseResponse)
-def get_knowledge_base(kb_id: int, db: Session = Depends(get_db)):
-    kb = db.query(KnowledgeBase).filter(KnowledgeBase.id == kb_id).first()
+def get_knowledge_base(kb_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    kb = db.query(KnowledgeBase).filter(KnowledgeBase.id == kb_id, KnowledgeBase.owner_id == current_user.id).first()
     if not kb:
         raise HTTPException(status_code=404, detail="Knowledge base not found")
     return KnowledgeBaseResponse(
@@ -69,8 +71,8 @@ def get_knowledge_base(kb_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{kb_id}")
-def delete_knowledge_base(kb_id: int, db: Session = Depends(get_db)):
-    kb = db.query(KnowledgeBase).filter(KnowledgeBase.id == kb_id).first()
+def delete_knowledge_base(kb_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    kb = db.query(KnowledgeBase).filter(KnowledgeBase.id == kb_id, KnowledgeBase.owner_id == current_user.id).first()
     if not kb:
         raise HTTPException(status_code=404, detail="Knowledge base not found")
     vector_store.delete_collection(kb_id)
@@ -80,16 +82,16 @@ def delete_knowledge_base(kb_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{kb_id}/documents", response_model=List[DocumentResponse])
-def list_documents(kb_id: int, db: Session = Depends(get_db)):
-    kb = db.query(KnowledgeBase).filter(KnowledgeBase.id == kb_id).first()
+def list_documents(kb_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    kb = db.query(KnowledgeBase).filter(KnowledgeBase.id == kb_id, KnowledgeBase.owner_id == current_user.id).first()
     if not kb:
         raise HTTPException(status_code=404, detail="Knowledge base not found")
     return kb.documents
 
 
 @router.post("/{kb_id}/documents", response_model=DocumentResponse)
-async def upload_document(kb_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    kb = db.query(KnowledgeBase).filter(KnowledgeBase.id == kb_id).first()
+async def upload_document(kb_id: int, file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    kb = db.query(KnowledgeBase).filter(KnowledgeBase.id == kb_id, KnowledgeBase.owner_id == current_user.id).first()
     if not kb:
         raise HTTPException(status_code=404, detail="Knowledge base not found")
 
@@ -113,7 +115,11 @@ async def upload_document(kb_id: int, file: UploadFile = File(...), db: Session 
 
 
 @router.delete("/{kb_id}/documents/{document_id}")
-def delete_document(kb_id: int, document_id: int, db: Session = Depends(get_db)):
+def delete_document(kb_id: int, document_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # verify kb ownership
+    kb = db.query(KnowledgeBase).filter(KnowledgeBase.id == kb_id, KnowledgeBase.owner_id == current_user.id).first()
+    if not kb:
+        raise HTTPException(status_code=404, detail="Knowledge base not found")
     document = (
         db.query(Document)
         .filter(Document.id == document_id, Document.kb_id == kb_id)

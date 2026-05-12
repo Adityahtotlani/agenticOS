@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { API_BASE } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 import { Workflow, WorkflowRun, WorkflowStep } from '@/types'
 import { Agent } from '@/types'
 import { Plus, Play, Pencil, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react'
@@ -47,19 +47,19 @@ export default function WorkflowsPage() {
   const [error, setError] = useState('')
 
   async function fetchWorkflows() {
-    const res = await fetch(`${API_BASE}/api/workflows`)
+    const res = await apiFetch('/api/workflows')
     const data = await res.json()
     setWorkflows(data)
   }
 
   async function fetchAgents() {
-    const res = await fetch(`${API_BASE}/api/agents`)
+    const res = await apiFetch('/api/agents')
     const data = await res.json()
     setAgents(data)
   }
 
   async function fetchRunsForWorkflow(workflowId: number) {
-    const res = await fetch(`${API_BASE}/api/workflows/${workflowId}/runs`)
+    const res = await apiFetch(`/api/workflows/${workflowId}/runs`)
     const data = await res.json()
     setRecentRuns(prev => ({ ...prev, [workflowId]: data.slice(0, 3) }))
   }
@@ -132,12 +132,11 @@ export default function WorkflowsPage() {
         })),
       }
       const method = editor.workflowId ? 'PUT' : 'POST'
-      const url = editor.workflowId
-        ? `${API_BASE}/api/workflows/${editor.workflowId}`
-        : `${API_BASE}/api/workflows`
-      const res = await fetch(url, {
+      const path = editor.workflowId
+        ? `/api/workflows/${editor.workflowId}`
+        : '/api/workflows'
+      const res = await apiFetch(path, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
       if (!res.ok) throw new Error(await res.text())
@@ -152,12 +151,12 @@ export default function WorkflowsPage() {
 
   async function deleteWorkflow(id: number) {
     if (!confirm('Delete this workflow?')) return
-    await fetch(`${API_BASE}/api/workflows/${id}`, { method: 'DELETE' })
+    await apiFetch(`/api/workflows/${id}`, { method: 'DELETE' })
     setWorkflows(prev => prev.filter(w => w.id !== id))
   }
 
   async function runWorkflow(id: number) {
-    const res = await fetch(`${API_BASE}/api/workflows/${id}/run`, { method: 'POST' })
+    const res = await apiFetch(`/api/workflows/${id}/run`, { method: 'POST' })
     if (!res.ok) { alert('Failed to start run'); return }
     const data = await res.json()
     router.push(`/workflow-runs/${data.run_id}`)
