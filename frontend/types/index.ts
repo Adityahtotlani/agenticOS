@@ -135,6 +135,41 @@ export interface ScheduledJob {
   created_at: string
 }
 
+export interface WorkflowStep {
+  id: number
+  step_order: number
+  agent_id: number
+  task_title: string
+  task_description: string
+}
+
+export interface Workflow {
+  id: number
+  name: string
+  description: string
+  created_at: string
+  steps: WorkflowStep[]
+}
+
+export interface WorkflowStepRun {
+  id: number
+  step_id: number
+  task_id: number | null
+  status: string  // pending | running | completed | failed
+  started_at: string | null
+  ended_at: string | null
+  error: string | null
+}
+
+export interface WorkflowRun {
+  id: number
+  workflow_id: number
+  status: string
+  started_at: string | null
+  ended_at: string | null
+  step_runs: WorkflowStepRun[]
+}
+
 export type TerminalEntry =
   | { type: 'text'; content: string }
   | { type: 'tool_call'; name: string; input: string }

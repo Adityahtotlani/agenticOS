@@ -6,6 +6,7 @@ from .mcp_server import MCPServer
 from .agent_run import AgentRun
 from .scheduled_job import ScheduledJob
 from .attachment import Attachment
+from .workflow import Workflow, WorkflowStep, WorkflowRun, WorkflowStepRun
 
 __all__ = [
     "Agent",
@@ -17,4 +18,8 @@ __all__ = [
     "AgentRun",
     "ScheduledJob",
     "Attachment",
+    "Workflow",
+    "WorkflowStep",
+    "WorkflowRun",
+    "WorkflowStepRun",
 ]

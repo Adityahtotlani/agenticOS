@@ -68,4 +68,43 @@ def apply_lightweight_migrations() -> None:
                 created_at TEXT DEFAULT (datetime('now'))
             )
         """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS workflows (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS workflow_steps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                workflow_id INTEGER NOT NULL REFERENCES workflows(id),
+                step_order INTEGER NOT NULL,
+                agent_id INTEGER NOT NULL REFERENCES agents(id),
+                task_title TEXT NOT NULL,
+                task_description TEXT DEFAULT ''
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS workflow_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                workflow_id INTEGER NOT NULL REFERENCES workflows(id),
+                status TEXT DEFAULT 'running',
+                started_at TEXT DEFAULT (datetime('now')),
+                ended_at TEXT
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS workflow_step_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id INTEGER NOT NULL REFERENCES workflow_runs(id),
+                step_id INTEGER NOT NULL REFERENCES workflow_steps(id),
+                task_id INTEGER REFERENCES tasks(id),
+                status TEXT DEFAULT 'pending',
+                started_at TEXT,
+                ended_at TEXT,
+                error TEXT
+            )
+        """))
         conn.commit()

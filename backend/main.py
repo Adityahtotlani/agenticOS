@@ -5,7 +5,9 @@ from config import settings
 from database import Base, engine, apply_lightweight_migrations, SessionLocal
 from api import agents, tasks, ws, memory, templates, knowledge_bases, mcp_servers, metrics, attachments
 from api import scheduled_jobs as scheduled_jobs_router
+from api import workflows as workflows_router
 from models import Agent, Task, Memory, KnowledgeBase, Document, MCPServer, AgentRun, ScheduledJob
+from models import Workflow, WorkflowStep, WorkflowRun, WorkflowStepRun
 from scheduler import scheduler
 from apscheduler.triggers.cron import CronTrigger
 
@@ -83,6 +85,7 @@ app.include_router(metrics.router)
 app.include_router(ws.router)
 app.include_router(scheduled_jobs_router.router)
 app.include_router(attachments.router)
+app.include_router(workflows_router.router)
 
 
 @app.get("/health")
