@@ -4,6 +4,33 @@ from typing import Dict, Any
 
 _queues: Dict[int, asyncio.Queue] = {}
 
+# Steer queues — one per agent, non-blocking injection
+_steer_queues: Dict[int, asyncio.Queue] = {}
+
+
+def _get_steer_queue(agent_id: int) -> asyncio.Queue:
+    if agent_id not in _steer_queues:
+        _steer_queues[agent_id] = asyncio.Queue()
+    return _steer_queues[agent_id]
+
+
+def push_steer(agent_id: int, content: str) -> None:
+    """Called from the WS reader when a steer message arrives."""
+    queue = _get_steer_queue(agent_id)
+    queue.put_nowait(content)
+
+
+def drain_steers(agent_id: int) -> list[str]:
+    """Non-blocking drain — returns all pending steer messages."""
+    queue = _get_steer_queue(agent_id)
+    messages = []
+    while True:
+        try:
+            messages.append(queue.get_nowait())
+        except asyncio.QueueEmpty:
+            break
+    return messages
+
 
 def get_queue(agent_id: int) -> asyncio.Queue:
     if agent_id not in _queues:

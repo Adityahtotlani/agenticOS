@@ -5,7 +5,7 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 
 from agents import get_agent_runtime
-from agents.user_input import push_response, clear_queue
+from agents.user_input import push_response, clear_queue, push_steer
 from config import settings
 from database import SessionLocal
 from models.user import User
@@ -30,8 +30,13 @@ async def _client_reader(websocket: WebSocket, agent_id: int) -> None:
     try:
         while True:
             data = await websocket.receive_json()
-            if data.get("type") == "user_response":
+            msg_type = data.get("type")
+            if msg_type == "user_response":
                 await push_response(agent_id, data)
+            elif msg_type == "steer":
+                content = data.get("content", "")
+                if content:
+                    push_steer(agent_id, content)
     except WebSocketDisconnect:
         pass
     except Exception:

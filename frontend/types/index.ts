@@ -185,3 +185,5 @@ export type TerminalEntry =
       reason?: string
       pending: boolean
     }
+  | { type: 'steer'; content: string }
+  | { type: 'steer_received'; content: string }

@@ -14,11 +14,16 @@ interface AgentTerminalProps {
 export default function AgentTerminal({ agentId, taskId }: AgentTerminalProps) {
   const [entries, setEntries] = useState<TerminalEntry[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isDone, setIsDone] = useState(false)
+  const [steerInput, setSteerInput] = useState('')
   const terminalRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
     if (!taskId) return
+
+    setIsDone(false)
+    setSteerInput('')
 
     const connectWebSocket = () => {
       const token = getToken()
@@ -79,14 +84,25 @@ export default function AgentTerminal({ agentId, taskId }: AgentTerminalProps) {
           // Already reflected locally when user clicked Deny — no-op.
         } else if (data.type === 'user_answer') {
           // Server echo — local entry already updated.
+        } else if (data.type === 'steer_received') {
+          setEntries(prev => [...prev, { type: 'steer_received', content: data.content }])
         } else if (data.type === 'done') {
           setIsStreaming(false)
+          setIsDone(true)
+        } else if (data.type === 'budget_exceeded') {
+          setEntries(prev => [
+            ...prev,
+            { type: 'error', content: `BUDGET EXCEEDED: ${data.message}` },
+          ])
+          setIsStreaming(false)
+          setIsDone(true)
         } else if (data.type === 'error') {
           setEntries(prev => [
             ...prev,
             { type: 'error', content: `ERROR: ${data.message}` },
           ])
           setIsStreaming(false)
+          setIsDone(true)
         }
       }
 
@@ -146,6 +162,14 @@ export default function AgentTerminal({ agentId, taskId }: AgentTerminalProps) {
   const handleStop = () => {
     wsRef.current?.close()
     setIsStreaming(false)
+  }
+
+  const sendSteer = () => {
+    const content = steerInput.trim()
+    if (!content || !wsRef.current || isDone) return
+    wsRef.current.send(JSON.stringify({ type: 'steer', content }))
+    setEntries(prev => [...prev, { type: 'steer', content }])
+    setSteerInput('')
   }
 
   return (
@@ -234,10 +258,44 @@ export default function AgentTerminal({ agentId, taskId }: AgentTerminalProps) {
             if (entry.type === 'approval') {
               return <ApprovalEntry key={idx} entry={entry} onDecide={submitApproval} />
             }
+            if (entry.type === 'steer') {
+              return (
+                <div key={idx} className="my-1 flex items-start gap-2">
+                  <span className="text-blue-400 text-xs font-bold mt-0.5 shrink-0">YOU →</span>
+                  <span className="text-blue-200 text-sm italic">{entry.content}</span>
+                </div>
+              )
+            }
+            if (entry.type === 'steer_received') {
+              return (
+                <div key={idx} className="my-1 flex items-start gap-2">
+                  <span className="text-purple-400 text-xs font-bold mt-0.5 shrink-0">STEERED</span>
+                  <span className="text-purple-200 text-sm italic">{entry.content}</span>
+                </div>
+              )
+            }
             return null
           })
         )}
       </div>
+      {!isDone && (
+        <div className="flex gap-2 p-2 border-t border-gray-700 bg-gray-900">
+          <input
+            type="text"
+            value={steerInput}
+            onChange={e => setSteerInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && sendSteer()}
+            placeholder="Steer the agent… (press Enter)"
+            className="flex-1 bg-gray-800 text-white text-sm px-3 py-1.5 rounded border border-gray-700 focus:outline-none focus:border-blue-500 placeholder-gray-500"
+          />
+          <button
+            onClick={sendSteer}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm text-white transition-colors"
+          >
+            Send
+          </button>
+        </div>
+      )}
     </div>
   )
 }

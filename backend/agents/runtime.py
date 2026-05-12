@@ -12,7 +12,7 @@ from models.attachment import Attachment
 from config import settings
 from pricing import compute_cost
 from tools import build_tool_schemas, execute_tool, RISKY_TOOLS
-from agents.user_input import wait_for_response
+from agents.user_input import wait_for_response, drain_steers
 from mcp_client import MCPSessionGroup
 from mcp_client.manager import MCPServerConfig, unqualify, TOOL_PREFIX
 
@@ -360,6 +360,12 @@ class AgentRuntime:
                     "role": "user",
                     "content": tool_results
                 })
+
+                # Drain steer messages before next API call
+                steers = drain_steers(agent_id)
+                for steer_content in steers:
+                    messages.append({"role": "user", "content": steer_content})
+                    yield json.dumps({"type": "steer_received", "content": steer_content})
 
     async def _save_long_term_memory(self, messages: list, task: Task, db) -> None:
         """Generate and save a long-term memory summary of the task."""
