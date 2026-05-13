@@ -159,9 +159,18 @@ export default function NewAgentPage() {
             onChange={(e) => setModel(e.target.value)}
             className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-blue-500"
           >
-            <option value="claude-opus-4-7">Claude Opus 4.7 (Most powerful)</option>
-            <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Balanced)</option>
-            <option value="claude-haiku-4-5">Claude Haiku 4.5 (Fast)</option>
+            <optgroup label="Claude (Anthropic API)">
+              <option value="claude-opus-4-7">Claude Opus 4.7 (Most powerful)</option>
+              <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Balanced)</option>
+              <option value="claude-haiku-4-5">Claude Haiku 4.5 (Fast)</option>
+            </optgroup>
+            <optgroup label="Ollama (local, free)">
+              <option value="ollama/llama3">Llama 3 (8B)</option>
+              <option value="ollama/llama3:70b">Llama 3 (70B)</option>
+              <option value="ollama/mistral">Mistral 7B</option>
+              <option value="ollama/qwen2.5">Qwen 2.5</option>
+              <option value="ollama/gemma3">Gemma 3</option>
+            </optgroup>
           </select>
         </div>
 

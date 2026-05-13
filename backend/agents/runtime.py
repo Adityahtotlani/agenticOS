@@ -91,6 +91,23 @@ class AgentRuntime:
                     "Each tool's description starts with [server name] for context."
                 )
 
+            # Ollama path — bypasses Anthropic client entirely
+            if (agent.model or "").startswith("ollama/"):
+                async for chunk in self._run_ollama_loop(
+                    task_id=task_id,
+                    task_description=f"Task: {task.title}\n\n{task.description}",
+                    agent=agent,
+                    system_prompt=system_prompt,
+                    kb_id=kb_id,
+                    db=db,
+                ):
+                    yield chunk
+                agent.status = "idle"
+                task.status = "done"
+                task.result = "Task completed successfully"
+                db.commit()
+                return
+
             # Spawn attached MCP servers for the lifetime of this task
             async with MCPSessionGroup(mcp_configs) as mcp_group:
                 async for chunk in self._run_tool_loop(
@@ -366,6 +383,106 @@ class AgentRuntime:
                 for steer_content in steers:
                     messages.append({"role": "user", "content": steer_content})
                     yield json.dumps({"type": "steer_received", "content": steer_content})
+
+    def _build_openai_tools(self, kb_id=None) -> list:
+        """Convert Anthropic-format tool schemas to OpenAI function-calling format."""
+        anthropic_tools = build_tool_schemas(knowledge_base_id=kb_id)
+        openai_tools = []
+        for t in anthropic_tools:
+            openai_tools.append({
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t.get("description", ""),
+                    "parameters": t.get("input_schema", {"type": "object", "properties": {}}),
+                },
+            })
+        return openai_tools
+
+    async def _run_ollama_loop(
+        self,
+        task_id: int,
+        task_description: str,
+        agent,
+        system_prompt: str,
+        kb_id=None,
+        db=None,
+    ) -> AsyncGenerator[str, None]:
+        """Tool loop using the Ollama OpenAI-compatible API."""
+        try:
+            from openai import AsyncOpenAI
+        except ImportError:
+            yield json.dumps({"type": "error", "content": "Ollama not available: install openai package"})
+            return
+
+        model_name = agent.model.replace("ollama/", "", 1)
+        client = AsyncOpenAI(base_url=settings.ollama_base_url, api_key="ollama")
+
+        tools = self._build_openai_tools(kb_id)
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": task_description})
+
+        while True:
+            try:
+                response = await client.chat.completions.create(
+                    model=model_name,
+                    messages=messages,
+                    tools=tools if tools else None,
+                    tool_choice="auto" if tools else None,
+                )
+            except Exception as e:
+                yield json.dumps({"type": "error", "content": f"Ollama request failed: {e}"})
+                return
+
+            choice = response.choices[0]
+            msg = choice.message
+
+            # Emit text content
+            if msg.content:
+                yield json.dumps({"type": "output", "chunk": msg.content})
+
+            # No tool calls — we're done
+            if not msg.tool_calls or choice.finish_reason == "stop":
+                break
+
+            # Append assistant message (convert to dict for OpenAI message history)
+            messages.append(msg.model_dump())
+
+            # Execute each tool call
+            tool_results = []
+            for tc in msg.tool_calls:
+                tool_name = tc.function.name
+                try:
+                    tool_input = json.loads(tc.function.arguments)
+                except Exception:
+                    tool_input = {}
+
+                yield json.dumps({"type": "tool_call", "name": tool_name, "input": json.dumps(tool_input)})
+
+                # Drain steer messages before executing
+                for steer in drain_steers(self.agent_id):
+                    messages.append({"role": "user", "content": steer})
+                    yield json.dumps({"type": "steer_received", "content": steer})
+
+                try:
+                    result = await execute_tool(tool_name, tool_input, knowledge_base_id=kb_id)
+                except Exception as e:
+                    result = f"[tool error: {e}]"
+
+                yield json.dumps({"type": "tool_result", "name": tool_name, "result": str(result)[:500]})
+
+                tool_results.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": str(result),
+                })
+
+            messages.extend(tool_results)
+
+        yield json.dumps({"type": "done"})
 
     async def _save_long_term_memory(self, messages: list, task: Task, db) -> None:
         """Generate and save a long-term memory summary of the task."""
